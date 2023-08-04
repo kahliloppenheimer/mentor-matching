@@ -3,7 +3,7 @@
 Python script that takes in CSV with the following schema and matches mentors with mentees.
 
 ```
-Name, City,	State, Region,	Seniority
+Name, City,	State, Region, Seniority
 
 Julia, NYC, NY, MA, Doctor
 Robin, LA, CA, WC, Medical student
