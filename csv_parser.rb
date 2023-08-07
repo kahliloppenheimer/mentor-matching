@@ -1,6 +1,7 @@
 # typed: strict
 require 'sorbet-runtime'
 require 'csv'
+require 'securerandom'
 require './person'
 
 class CsvParser
@@ -63,6 +64,7 @@ class CsvParser
   end
   private_class_method def self.parse_person(schema, row)
     Person.new(
+      id: T.let(SecureRandom.alphanumeric, String),
       name: row.fetch(schema.fetch(NameCol)),
       city: row.fetch(schema.fetch(CityCol)),
       state: row.fetch(schema.fetch(StateCol)),

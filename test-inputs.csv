@@ -1,7 +1,7 @@
 Name,City,State,Region,Seniority
-Ella Fitzgerald,Jersey City,NJ,MA,L6
-Frank Sinatra,NYC,NY,MA,L5
-Speridakas Terrace,Albany,NY,MA,L2
-Bug Brooklyn,San Diego,CA,PW,L6
-Stanley Pizza,Los Angeles,CA,PW,L3
-Olaf Afraid,NYC,NY,MA,L3
+Ella Fitzgerald,Jersey City,NJ,MA,Psychiatrist
+Frank Sinatra,NYC,NY,MA,ECP
+Speridakas Terrace,Albany,NY,MA,MS34
+Bug Brooklyn,San Diego,CA,PW,Psychiatrist
+Stanley Pizza,Los Angeles,CA,PW,Resident
+Olaf Afraid,NYC,NY,MA,Resident
