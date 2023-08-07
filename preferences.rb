@@ -7,9 +7,9 @@ class Preferences
 
   extend T::Sig
 
-  sig {params(people: T::Array[Person]).returns(T::Hash[Person, T::Array[Person]])}
+  sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
   def self.compute_mentor_to_mentee_preferences(people)
-    preferences = T.let({}, T::Hash[Person, T::Array[Person]])
+    preferences = T.let({}, T::Hash[String, T::Array[String]])
     people.each do |mentor|
       potential_mentees = people
         # Rule out yourself as a potential mentor.
@@ -33,15 +33,15 @@ class Preferences
         -1 * final_comparison
       end
 
-      preferences[mentor] = preferred_mentees
+      preferences[mentor.name] = preferred_mentees.map(&:name)
     end
 
     preferences
   end
 
-  sig {params(people: T::Array[Person]).returns(T::Hash[Person, T::Array[Person]])}
+  sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
   def self.compute_mentee_to_mentor_preferences(people)
-    preferences = T.let({}, T::Hash[Person, T::Array[Person]])
+    preferences = T.let({}, T::Hash[String, T::Array[String]])
     people.each do |mentee|
       potential_mentors = people
         # Rule out yourself as a potential mentor.
@@ -65,7 +65,7 @@ class Preferences
         -1 * final_comparison
       end
 
-      preferences[mentee] = preferred_mentors
+      preferences[mentee.name] = preferred_mentors.map(&:name)
     end
 
     preferences
