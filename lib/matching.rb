@@ -6,10 +6,8 @@ require './lib/preferences'
 class Matching
   extend T::Sig
 
-  sig {params(csv_path: String).void}
-  def self.match(csv_path)
-    people = CsvParser.parse(csv_path)
-
+  sig {params(people: T::Array[Person]).void}
+  def self.match(people)
     mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(people).reject {|person, preferences| preferences.empty?}
     mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(people).reject {|person, preferences| preferences.empty?}
 
@@ -104,5 +102,3 @@ class Matching
   end
 
 end
-
-Matching.match('test-inputs.csv')

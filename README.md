@@ -19,3 +19,6 @@ Mentor, Mentee
 Julia, Hannah
 Kahlil, Robin
 ```
+
+## Run the included example
+ruby lib/application.rb data/test-inputs.csv
