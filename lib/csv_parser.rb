@@ -2,7 +2,7 @@
 require 'sorbet-runtime'
 require 'csv'
 require 'securerandom'
-require './person'
+require './lib/person'
 
 class CsvParser
 

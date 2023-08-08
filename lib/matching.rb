@@ -1,9 +1,8 @@
 # typed: strict
 require 'sorbet-runtime'
-require './csv_parser'
-require './preferences'
+require './lib/csv_parser'
+require './lib/preferences'
 
-# Example matching class!
 class Matching
   extend T::Sig
 

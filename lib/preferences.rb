@@ -1,8 +1,7 @@
 # typed: strict
 require 'sorbet-runtime'
-require './person'
+require './lib/person'
 
-# Example matching class!
 class Preferences
 
   extend T::Sig
