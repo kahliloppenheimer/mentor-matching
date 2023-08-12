@@ -11,12 +11,35 @@ class Matching
     mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(people).reject {|person, preferences| preferences.empty?}
     mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(people).reject {|person, preferences| preferences.empty?}
 
-    puts("Mentees:\n#{mentees_to_preferences}")
-    puts("Mentors:\n#{mentors_to_preferences}")
+    mentors_to_mentees = gale_shapley(proposers: mentees_to_preferences, acceptors: mentors_to_preferences)
 
-    mentees_to_mentors = gale_shapley(proposers: mentees_to_preferences, acceptors: mentors_to_preferences)
+    mentees = mentees_to_preferences.select {|_, preferences| !preferences.empty?}.keys
+    mentors = mentors_to_preferences.select {|_, preferences| !preferences.empty?}.keys
 
-    puts("Mentees -> Mentors:\n", mentees_to_mentors)
+    compute_match_statistics(mentees: mentees, mentors: mentors, mentors_to_mentees: mentors_to_mentees)
+
+    puts("Mentors -> Mentees:\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor} -> #{mentee}"}.join("\n"))
+  end
+
+  sig do
+    params(
+      mentees: T::Array[String],
+      mentors: T::Array[String],
+      mentors_to_mentees: T::Hash[String, String]
+    ).void
+  end
+  private_class_method def self.compute_match_statistics(mentees:, mentors:, mentors_to_mentees:)
+    matched_mentees = mentors_to_mentees.values.uniq
+    matched_mentors = mentors_to_mentees.keys.uniq
+
+    matched_mentee_count = mentees.select {|mentee| matched_mentees.include?(mentee)}.uniq.size
+    matched_mentor_count = mentors.select {|mentor| matched_mentors.include?(mentor)}.uniq.size
+
+    mentee_match_percent = (matched_mentee_count * 100.0 / mentees.uniq.size)
+    mentor_match_percent = (matched_mentor_count * 100.0 / mentors.uniq.size)
+
+    puts("Mentor match percent: #{mentor_match_percent}%")
+    puts("Mentee match percent: #{mentee_match_percent}%")
   end
 
   # Takes input proposers and accepters as hash from IDs -> List of IDs in order of preference (descending)

@@ -21,28 +21,30 @@ class CsvParser
     rows = parse_csv_into_arrays(csv_path)
     headers = rows[0]
     csv_schema = parse_csv_schema(T.must(headers))
-    T.must(rows[1..]).map { |row| parse_person(csv_schema, row) }
+    T.must(rows[1..])
+      .reject { |row| row.all?(&:nil?) }
+      .map { |row| parse_person(csv_schema, row) }
+
   end
 
   sig do
-    params(csv_path: String).returns(T::Array[T::Array[String]])
+    params(csv_path: String).returns(T::Array[T::Array[T.nilable(String)]])
   end
   private_class_method def self.parse_csv_into_arrays(csv_path)
     CSV.read(csv_path).map do |row|
       row.map do |value|
-        new_value = value&.downcase&.strip
-        if new_value.nil? || new_value.empty?
-          raise "Found empty value while parsing CSV. row=#{row}"
-        end
-        new_value
+        value&.downcase&.strip
       end
     end
   end
 
-  sig {params(headers: T::Array[String]).returns(T::Hash[String, Integer])}
+  sig {params(headers: T::Array[T.nilable(String)]).returns(T::Hash[String, Integer])}
   private_class_method def self.parse_csv_schema(headers)
     schema = T.let({}, T::Hash[String, Integer])
     headers.each_with_index do |header, i|
+      if header.nil?
+        next
+      end
       schema_val = case header
       when NameCol,
         CityCol,
@@ -50,26 +52,37 @@ class CsvParser
         RegionCol,
         SeniorityCol
         i
-      else
-        raise 'Found unexpected CSV header: #{header}'
       end
 
       schema[header] = i
     end
+
+    if !schema.keys.include?(NameCol) \
+      || !schema.keys.include?(CityCol) \
+      || !schema.keys.include?(StateCol) \
+      || !schema.keys.include?(RegionCol) \
+      || !schema.keys.include?(SeniorityCol)
+      raise "Could not find all schema values! Only found: #{schema.keys}"
+    end
+
     schema
   end
 
   sig do
-    params(schema: T::Hash[String, Integer], row: T::Array[String]).returns(Person)
+    params(schema: T::Hash[String, Integer], row: T::Array[T.nilable(String)]).returns(Person)
   end
   private_class_method def self.parse_person(schema, row)
-    Person.new(
-      id: T.let(SecureRandom.alphanumeric, String),
-      name: row.fetch(schema.fetch(NameCol)),
-      city: row.fetch(schema.fetch(CityCol)),
-      state: row.fetch(schema.fetch(StateCol)),
-      region: row.fetch(schema.fetch(RegionCol)),
-      seniority: row.fetch(schema.fetch(SeniorityCol)),
-    )
+    begin 
+      Person.new(
+        id: T.let(SecureRandom.alphanumeric, String),
+        name: T.must(row.fetch(schema.fetch(NameCol))),
+        city: T.must(row.fetch(schema.fetch(CityCol))),
+        state: T.must(row.fetch(schema.fetch(StateCol))),
+        region: T.must(row.fetch(schema.fetch(RegionCol))),
+        seniority: T.must(row.fetch(schema.fetch(SeniorityCol))),
+      )
+    rescue TypeError 
+      raise "Found nil value when parsing row: #{row}"
+    end
   end
 end
