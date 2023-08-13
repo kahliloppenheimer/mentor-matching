@@ -10,4 +10,5 @@ class Person < T::Struct
   const :state, String
   const :region, String
   const :seniority, String
+  const :rank, Integer
 end

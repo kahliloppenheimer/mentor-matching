@@ -14,13 +14,13 @@ class Preferences
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
-        .select {|other_person| rank(other_person.seniority) - rank(mentor.seniority) < 0}
+        .select {|other_person| other_person.rank - mentor.rank < 0}
 
       # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
       # (in descending order of priority).
       preferred_mentees = potential_mentees.sort do |p1, p2|
         comparisons = [
-          compare_seniority(target_seniority: mentor.seniority, p1_seniority: p1.seniority, p2_seniority: p2.seniority),
+          compare_rank(target_rank: mentor.rank, p1_rank: p1.rank, p2_rank: p2.rank),
           compare_preferring_target(target: mentor.city, a: p1.city, b: p2.city),
           compare_preferring_target(target: mentor.state, a: p1.state, b: p2.state),
           compare_preferring_target(target: mentor.region, a: p1.region, b: p2.region)
@@ -46,13 +46,13 @@ class Preferences
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
         # Only keep potential mentors who are more senior
-        .select {|other_person| rank(other_person.seniority) - rank(mentee.seniority) > 0}
+        .select {|other_person| other_person.rank - mentee.rank > 0}
 
       # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
       # (in descending order of priority).
       preferred_mentors = potential_mentors.sort do |p1, p2|
         comparisons = [
-          compare_seniority(target_seniority: mentee.seniority, p1_seniority: p1.seniority, p2_seniority: p2.seniority),
+          compare_rank(target_rank: mentee.rank, p1_rank: p1.rank, p2_rank: p2.rank),
           compare_preferring_target(target: mentee.city, a: p1.city, b: p2.city),
           compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
           compare_preferring_target(target: mentee.region, a: p1.region, b: p2.region)
@@ -84,37 +84,17 @@ class Preferences
 
   sig do
     params(
-      target_seniority: String,
-      p1_seniority: String,
-      p2_seniority: String
+      target_rank: Integer,
+      p1_rank: Integer,
+      p2_rank: Integer
     ).returns(Integer)
   end
-  private_class_method def self.compare_seniority(target_seniority:, p1_seniority:, p2_seniority:)
-    p1_rank_difference = (rank(p1_seniority) - rank(target_seniority)).abs
-    p2_rank_difference = (rank(p2_seniority) - rank(target_seniority)).abs
+  private_class_method def self.compare_rank(target_rank:, p1_rank:, p2_rank:)
+    p1_rank_difference = (p1_rank - target_rank).abs
+    p2_rank_difference = (p2_rank - target_rank).abs
 
     # Reverse the comparison, since we prefer a lower rank difference (e.g. closer two ranks/seniorities).
     p2_rank_difference <=> p1_rank_difference
-  end
-
-  sig {params(seniority: String).returns(Integer)}
-  private_class_method def self.rank(seniority)
-    case seniority
-    when 'psychiatrist'
-      5
-    when 'ecp'
-      4
-    when 'fellow'
-      3
-    when 'resident'
-      2
-    when 'ms34'
-      1
-    when 'ms12'
-      0
-    else
-      raise "Found unknown seniority value: #{seniority}"
-    end
   end
 
   # Performs a comparison where

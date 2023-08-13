@@ -24,7 +24,7 @@ class CsvParser
     T.must(rows[1..])
       .reject { |row| row.all?(&:nil?) }
       .map { |row| parse_person(csv_schema, row) }
-
+      .compact
   end
 
   sig do
@@ -69,9 +69,24 @@ class CsvParser
   end
 
   sig do
-    params(schema: T::Hash[String, Integer], row: T::Array[T.nilable(String)]).returns(Person)
+    params(schema: T::Hash[String, Integer], row: T::Array[T.nilable(String)]).returns(T.nilable(Person))
   end
   private_class_method def self.parse_person(schema, row)
+    seniority = row[schema.fetch(SeniorityCol)]
+
+    skip_message = "Skipping #{row.fetch(schema.fetch(NameCol))} because of missing values."
+
+    if seniority.nil?
+      puts(skip_message)
+      return nil
+    end
+
+    rank = rank(seniority)
+    if rank.nil?
+      puts(skip_message)
+      return nil
+    end
+
     begin 
       Person.new(
         id: T.let(SecureRandom.alphanumeric, String),
@@ -80,9 +95,29 @@ class CsvParser
         state: T.must(row.fetch(schema.fetch(StateCol))),
         region: T.must(row.fetch(schema.fetch(RegionCol))),
         seniority: T.must(row.fetch(schema.fetch(SeniorityCol))),
+        rank: rank
       )
-    rescue TypeError 
-      raise "Found nil value when parsing row: #{row}"
+    end
+  end
+
+  sig {params(seniority: String).returns(T.nilable(Integer))}
+  private_class_method def self.rank(seniority)
+    case seniority
+    when 'psychiatrist'
+      5
+    when 'ecp'
+      4
+    when 'fellow'
+      3
+    when 'resident'
+      2
+    when 'ms34'
+      1
+    when 'ms12'
+      0
+    else
+      puts "Found unknown seniority value: #{seniority}"
+      return nil
     end
   end
 end

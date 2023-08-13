@@ -10,5 +10,5 @@ if csv_file_path.nil? || csv_file_path.empty?
 end
 
 
-csv = CsvParser.parse(csv_file_path)
-Matching.match(csv)
+people = CsvParser.parse(csv_file_path)
+Matching.match(people)

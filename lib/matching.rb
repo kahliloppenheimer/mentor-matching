@@ -16,9 +16,13 @@ class Matching
     mentees = mentees_to_preferences.select {|_, preferences| !preferences.empty?}.keys
     mentors = mentors_to_preferences.select {|_, preferences| !preferences.empty?}.keys
 
-    compute_match_statistics(mentees: mentees, mentors: mentors, mentors_to_mentees: mentors_to_mentees)
+    puts("\n\n")
+    puts("*************RESULTS*************\n\n")
 
-    puts("Mentors -> Mentees:\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor} -> #{mentee}"}.join("\n"))
+    compute_match_statistics(mentees: mentees, mentors: mentors, mentors_to_mentees: mentors_to_mentees)
+    puts()
+
+    puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor} -> #{mentee}"}.join("\n"))
   end
 
   sig do
