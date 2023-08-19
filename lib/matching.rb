@@ -19,7 +19,13 @@ class Matching
     puts("\n\n")
     puts("*************RESULTS*************\n\n")
 
-    compute_match_statistics(mentees: mentees, mentors: mentors, mentors_to_mentees: mentors_to_mentees)
+    compute_match_statistics(
+      mentees: mentees, 
+      mentees_to_preferences: mentees_to_preferences, 
+      mentors: mentors, 
+      mentors_to_preferences: mentors_to_preferences, 
+      mentors_to_mentees: mentors_to_mentees
+    )
     puts()
 
     puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor} -> #{mentee}"}.join("\n"))
@@ -28,11 +34,19 @@ class Matching
   sig do
     params(
       mentees: T::Array[String],
+      mentees_to_preferences: T::Hash[String, T::Array[String]],
       mentors: T::Array[String],
+      mentors_to_preferences: T::Hash[String, T::Array[String]],
       mentors_to_mentees: T::Hash[String, String]
     ).void
   end
-  private_class_method def self.compute_match_statistics(mentees:, mentors:, mentors_to_mentees:)
+  private_class_method def self.compute_match_statistics(
+    mentees:, 
+    mentees_to_preferences:, 
+    mentors:, 
+    mentors_to_preferences:, 
+    mentors_to_mentees:
+  )
     matched_mentees = mentors_to_mentees.values.uniq
     matched_mentors = mentors_to_mentees.keys.uniq
 
@@ -42,8 +56,32 @@ class Matching
     mentee_match_percent = (matched_mentee_count * 100.0 / mentees.uniq.size)
     mentor_match_percent = (matched_mentor_count * 100.0 / mentors.uniq.size)
 
-    puts("Mentor match percent: #{mentor_match_percent}%")
-    puts("Mentee match percent: #{mentee_match_percent}%")
+    mentees_to_mentors = mentors_to_mentees.invert
+
+    mentees_to_ranked_results = matched_mentees.map do |mentee|
+      mentor = mentees_to_mentors.fetch(mentee)
+      mentee_preferences = mentees_to_preferences.fetch(mentee)
+      # Use 1-based indexing to represent first pick is 1
+      mentor_rank = T.must(mentee_preferences.find_index(mentor)) + 1
+      [mentee, mentor_rank]
+    end.to_h
+
+    puts("Mentees to ranked results:")
+    mentees_to_ranked_results.values.sort
+
+    puts("# matched mentees: #{matched_mentee_count}")
+    puts("# eligible mentees: #{mentees.size}")
+    puts("% mentee match: #{mentee_match_percent}%")
+    unmatched_mentees = mentees.reject {|mentee| matched_mentees.include?(mentee)}
+    puts("\nUnmatched mentees (#{unmatched_mentees.size}): #{unmatched_mentees}\n\n")
+
+    puts("# matched mentors: #{matched_mentor_count}")
+    puts ("# eligible mentors: #{mentors.size}")
+    puts("% mentor match: #{mentor_match_percent}%")
+    unmatched_mentors = mentors.reject {|mentor| matched_mentors.include?(mentor)}
+    puts("\nUnmatched mentors (#{unmatched_mentors.size}): #{unmatched_mentors}\n\n")
+
+
   end
 
   # Takes input proposers and accepters as hash from IDs -> List of IDs in order of preference (descending)
@@ -60,8 +98,12 @@ class Matching
     proposers:,
     acceptors:
   )
-    proposers = proposers.dup
-    acceptors = acceptors.dup
+    proposers = T.cast(Marshal.load(Marshal.dump(proposers)), T::Hash[String, T::Array[String]])
+    acceptors = T.cast(Marshal.load(Marshal.dump(acceptors)), T::Hash[String, T::Array[String]])
+
+    # Filter out any rankings of proposers/acceptors who did not reciprocally rank the acceptor/proposer.
+    proposers = proposers.map {|proposer, preferences| [proposer, preferences.select {|acceptor| acceptors.fetch(acceptor).include?(proposer)}]}.to_h
+    acceptors = acceptors.map {|acceptor, preferences| [acceptor, preferences.select {|proposer| proposers.fetch(proposer).include?(acceptor)}]}.to_h
 
     matches = T.let({}, T::Hash[String, String])
 

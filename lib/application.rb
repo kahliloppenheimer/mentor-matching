@@ -9,6 +9,5 @@ if csv_file_path.nil? || csv_file_path.empty?
   raise "Please pass in a CSV file path as input"
 end
 
-
 people = CsvParser.parse(csv_file_path)
 Matching.match(people)

@@ -13,6 +13,9 @@ class CsvParser
   StateCol = 'state'
   RegionCol = 'region'
   SeniorityCol = 'seniority'
+  IsMenteeCol = 'is a mentee?'
+  IsMentorCol = 'is a mentor?'
+  MentorAllowlistCol = 'only mentors'
 
   sig do
     params(csv_path: String).returns(T::Array[Person])
@@ -50,7 +53,10 @@ class CsvParser
         CityCol,
         StateCol,
         RegionCol,
-        SeniorityCol
+        SeniorityCol,
+        IsMentorCol,
+        IsMenteeCol,
+        MentorAllowlistCol
         i
       end
 
@@ -61,7 +67,10 @@ class CsvParser
       || !schema.keys.include?(CityCol) \
       || !schema.keys.include?(StateCol) \
       || !schema.keys.include?(RegionCol) \
-      || !schema.keys.include?(SeniorityCol)
+      || !schema.keys.include?(SeniorityCol) \
+      || !schema.keys.include?(IsMenteeCol) \
+      || !schema.keys.include?(IsMentorCol) \
+      || !schema.keys.include?(MentorAllowlistCol)
       raise "Could not find all schema values! Only found: #{schema.keys}"
     end
 
@@ -87,6 +96,10 @@ class CsvParser
       return nil
     end
 
+    is_mentee = (row[schema.fetch(IsMenteeCol)] || "yes") == "yes"
+    is_mentor = (row[schema.fetch(IsMentorCol)] || "yes") == "yes"
+    mentee_seniority_allowlist = (row[schema.fetch(MentorAllowlistCol)] || "").split(",").map(&:strip)
+
     begin 
       Person.new(
         id: T.let(SecureRandom.alphanumeric, String),
@@ -94,8 +107,11 @@ class CsvParser
         city: T.must(row.fetch(schema.fetch(CityCol))),
         state: T.must(row.fetch(schema.fetch(StateCol))),
         region: T.must(row.fetch(schema.fetch(RegionCol))),
-        seniority: T.must(row.fetch(schema.fetch(SeniorityCol))),
-        rank: rank
+        seniority: seniority,
+        rank: rank,
+        is_mentee: is_mentee,
+        is_mentor: is_mentor,
+        mentee_seniority_allowlist: mentee_seniority_allowlist
       )
     end
   end

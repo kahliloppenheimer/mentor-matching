@@ -1,6 +1,7 @@
 # typed: strict
 require 'sorbet-runtime'
 require './lib/person'
+require 'pry-byebug'
 
 class Preferences
 
@@ -9,8 +10,19 @@ class Preferences
   sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
   def self.compute_mentor_to_mentee_preferences(people)
     preferences = T.let({}, T::Hash[String, T::Array[String]])
+
     people.each do |mentor|
+
+      if !mentor.is_mentor
+        preferences[mentor.name] = []
+        next
+      end
+
       potential_mentees = people
+        # Only keep people who want to be mentees.
+        .select {|other_person| other_person.is_mentee}
+        # Only keep mentees that match the mentor's seniority allowlist (if there is one).
+        .select {|other_person| mentor.mentee_seniority_allowlist.empty? || mentor.mentee_seniority_allowlist.include?(other_person.seniority)}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
@@ -41,8 +53,17 @@ class Preferences
   sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
   def self.compute_mentee_to_mentor_preferences(people)
     preferences = T.let({}, T::Hash[String, T::Array[String]])
+
     people.each do |mentee|
+
+      if !mentee.is_mentee
+        preferences[mentee.name] = []
+        next
+      end
+      
       potential_mentors = people
+        # Only keep people who want to be mentors
+        .select {|other_person| other_person.is_mentor}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
         # Only keep potential mentors who are more senior
@@ -52,6 +73,7 @@ class Preferences
       # (in descending order of priority).
       preferred_mentors = potential_mentors.sort do |p1, p2|
         comparisons = [
+          p1.mentee_seniority_allowlist.include?(mentee.seniority) ? 1 : 0,
           compare_rank(target_rank: mentee.rank, p1_rank: p1.rank, p2_rank: p2.rank),
           compare_preferring_target(target: mentee.city, a: p1.city, b: p2.city),
           compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),

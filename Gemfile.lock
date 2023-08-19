@@ -2,18 +2,35 @@ GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.2)
+    byebug (11.1.3)
+    coderay (1.1.3)
+    debug (1.8.0)
+      irb (>= 1.5.0)
+      reline (>= 0.3.1)
     diff-lcs (1.5.0)
+    io-console (0.5.6)
+    irb (1.7.4)
+      reline (>= 0.3.6)
+    method_source (1.0.0)
     netrc (0.11.0)
     parallel (1.23.0)
     parser (3.2.2.3)
       ast (~> 2.4.1)
       racc
+    pry (0.13.1)
+      coderay (~> 1.1)
+      method_source (~> 1.0)
+    pry-byebug (3.9.0)
+      byebug (~> 11.0)
+      pry (~> 0.13.0)
     racc (1.7.1)
     rbi (0.0.17)
       ast
       parser (>= 3.0.0)
       sorbet-runtime (>= 0.5.9204)
       unparser (>= 0.5.6)
+    reline (0.3.7)
+      io-console (~> 0.5)
     sorbet (0.5.10950)
       sorbet-static (= 0.5.10950)
     sorbet-runtime (0.5.10950)
@@ -47,6 +64,8 @@ PLATFORMS
   arm64-darwin-21
 
 DEPENDENCIES
+  debug
+  pry-byebug
   sorbet
   sorbet-runtime
   tapioca

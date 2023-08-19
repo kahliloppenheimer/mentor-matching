@@ -11,4 +11,8 @@ class Person < T::Struct
   const :region, String
   const :seniority, String
   const :rank, Integer
+
+  const :is_mentee, T::Boolean
+  const :is_mentor, T::Boolean
+  const :mentee_seniority_allowlist, T::Array[String]
 end
