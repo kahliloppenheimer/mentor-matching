@@ -27,6 +27,8 @@ class Preferences
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
         .select {|other_person| other_person.rank - mentor.rank < 0}
+        # Reject any mentees on the city denylist
+        .reject {|other_person| mentor.mentee_city_denylist.include?(other_person.city)}
 
       # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
       # (in descending order of priority).
@@ -66,6 +68,8 @@ class Preferences
         .select {|other_person| other_person.is_mentor}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
+        # Rule out anyone on the mentor_city_denylist
+        .reject {|other_person| mentee.mentor_city_denylist.include?(other_person.city)}
         # Only keep potential mentors who are more senior
         .select {|other_person| other_person.rank - mentee.rank > 0}
 
@@ -75,9 +79,10 @@ class Preferences
         comparisons = [
           p1.mentee_seniority_allowlist.include?(mentee.seniority) ? 1 : 0,
           compare_rank(target_rank: mentee.rank, p1_rank: p1.rank, p2_rank: p2.rank),
-          compare_preferring_target(target: mentee.city, a: p1.city, b: p2.city),
-          compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
-          compare_preferring_target(target: mentee.region, a: p1.region, b: p2.region)
+          # compare_preferring_target(target: mentee.city, a: p1.city, b: p2.city),
+          # compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
+          compare_preferring_target(target: mentee.region, a: p1.region, b: p2.region),
+          compare_interests(mentee, p1, p2)
         ]
 
         final_comparison = sort_by_comparison_list(comparisons)
@@ -118,6 +123,18 @@ class Preferences
     # Reverse the comparison, since we prefer a lower rank difference (e.g. closer two ranks/seniorities).
     p2_rank_difference <=> p1_rank_difference
   end
+
+  sig do
+    params(
+      mentee: Person,
+      p1: Person,
+      p2: Person
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_interests(mentee, p1, p2)
+    mentee.interests.intersection(p1.interests.intersection).size <=> mentee.interests.intersection(p2.interests).size
+  end
+
 
   # Performs a comparison where
   #
