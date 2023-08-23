@@ -9,7 +9,7 @@ With a ranked list of automatically computed mentor/mentee preferences for each 
 
 A quick note, the algorithm has been tweaked a tiny bit to work for mentor matching specifically. Mentor matching is a bit interesting and different from resident matching. In mentor matching, there is just one pool of applications, and each person can be both a mentor and a mentee. In residency matching there are two pools (residents and programs) and each program can house multiple residents. The fundamental premise of the algorithm remains the same, but some of the technical implementation varies to accommmodate this.
 
-The final output of the program is a configuration of stable matches that satisfy the following guarantee: no mentor is matched with a mentee for whom they both would prefer each other to their current matching. Again, "prefer each other" is determined by the preferences the program computes based on seniority (preferring people close in seniority), location (preferring people close together), and interests (preferring people with similar interests).
+The final output of the program is a configuration of stable matches that satisfy the following guarantee: no unmatched mentor and mentee exist for whom they both would prefer each other to their current matching. Again, "prefer each other" is determined by the preferences the program computes based on seniority (preferring people close in seniority), location (preferring people close together), and interests (preferring people with similar interests).
 
 ### Overview
 This is a Ruby program to perform Stable Mentor Matching! This is a fun variant of the famous stable marriage problem with the following tweaks:
