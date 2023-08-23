@@ -18,6 +18,7 @@ class CsvParser
   MentorSeniorityAllowlistCol = 'only mentors'
   MentorRegionDenylistCol = 'mentor region denylist'
   MenteeRegionDenylistCol = 'mentee region denylist'
+  PersonDenylistCol = 'person denylist'
 
   # Interests (should refactor to be more modular)
   ChildPsychInterestCol = 'child psych interest'
@@ -40,6 +41,7 @@ class CsvParser
     MentorSeniorityAllowlistCol,
     MentorRegionDenylistCol,
     MenteeRegionDenylistCol,
+    PersonDenylistCol,
     ChildPsychInterestCol,
     ResearchInterestCol,
     LeadershipInterestCol,
@@ -120,6 +122,7 @@ class CsvParser
     mentee_seniority_allowlist = (row[schema.fetch(MentorSeniorityAllowlistCol)] || "").split(",").map(&:strip)
     mentor_region_denylist = (row[schema.fetch(MentorRegionDenylistCol)] || "").split(",").map(&:strip)
     mentee_region_denylist = (row[schema.fetch(MenteeRegionDenylistCol)] || "").split(",").map(&:strip)
+    person_denylist = (row[schema.fetch(PersonDenylistCol)] || "").split(",").map(&:strip)
 
     interests = [
       row[schema.fetch(ChildPsychInterestCol)],
@@ -143,6 +146,7 @@ class CsvParser
         rank: rank,
         is_mentee: is_mentee,
         is_mentor: is_mentor,
+        person_denylist: person_denylist,
         mentee_seniority_allowlist: mentee_seniority_allowlist,
         mentor_region_denylist: mentor_region_denylist,
         mentee_region_denylist: mentee_region_denylist,
