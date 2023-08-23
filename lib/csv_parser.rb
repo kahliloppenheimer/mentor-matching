@@ -16,8 +16,8 @@ class CsvParser
   IsMenteeCol = 'is a mentee?'
   IsMentorCol = 'is a mentor?'
   MentorSeniorityAllowlistCol = 'only mentors'
-  MentorCityDenylistCol = 'mentor city denylist'
-  MenteeCityDenylistCol = 'mentee city denylist'
+  MentorRegionDenylistCol = 'mentor region denylist'
+  MenteeRegionDenylistCol = 'mentee region denylist'
 
   # Interests (should refactor to be more modular)
   ChildPsychInterestCol = 'child psych interest'
@@ -28,6 +28,28 @@ class CsvParser
   AddictionInterestCol = 'addiction'
   DeiInterestCol = 'dei'
   WomensMentalHealthCol = "women's mental health"
+
+  AllCols = T.let([
+    NameCol,
+    CityCol,
+    StateCol,
+    RegionCol,
+    SeniorityCol,
+    IsMentorCol,
+    IsMenteeCol,
+    MentorSeniorityAllowlistCol,
+    MentorRegionDenylistCol,
+    MenteeRegionDenylistCol,
+    ChildPsychInterestCol,
+    ResearchInterestCol,
+    LeadershipInterestCol,
+    AcademicMedInterestCol,
+    ForensicsInterestCol,
+    AddictionInterestCol,
+    DeiInterestCol,
+    WomensMentalHealthCol
+  ],
+  T::Array[String])
 
   sig do
     params(csv_path: String).returns(T::Array[Person])
@@ -60,50 +82,15 @@ class CsvParser
       if header.nil?
         next
       end
-      schema_val = case header
-      when NameCol,
-        CityCol,
-        StateCol,
-        RegionCol,
-        SeniorityCol,
-        IsMentorCol,
-        IsMenteeCol,
-        MentorSeniorityAllowlistCol,
-        MentorCityDenylistCol,
-        MenteeCityDenylistCol,
-        ChildPsychInterestCol,
-        ResearchInterestCol,
-        LeadershipInterestCol,
-        AcademicMedInterestCol,
-        ForensicsInterestCol,
-        AddictionInterestCol,
-        DeiInterestCol,
-        WomensMentalHealthCol
-        i
+      if AllCols.include?(header)
+        schema[header] = i
       end
-
-      schema[header] = i
     end
 
-    if !schema.keys.include?(NameCol) \
-        || !schema.keys.include?(CityCol) \
-        || !schema.keys.include?(StateCol) \
-        || !schema.keys.include?(RegionCol) \
-        || !schema.keys.include?(SeniorityCol) \
-        || !schema.keys.include?(IsMenteeCol) \
-        || !schema.keys.include?(IsMentorCol) \
-        || !schema.keys.include?(MentorSeniorityAllowlistCol) \
-        || !schema.keys.include?(MentorCityDenylistCol) \
-        || !schema.keys.include?(MenteeCityDenylistCol) \
-        || !schema.keys.include?(ChildPsychInterestCol) \
-        || !schema.keys.include?(ResearchInterestCol) \
-        || !schema.keys.include?(LeadershipInterestCol) \
-        || !schema.keys.include?(AcademicMedInterestCol) \
-        || !schema.keys.include?(ForensicsInterestCol) \
-        || !schema.keys.include?(AddictionInterestCol) \
-        || !schema.keys.include?(DeiInterestCol) \
-        || !schema.keys.include?(WomensMentalHealthCol)
-      raise "Could not find all schema values! Only found: #{schema.keys}"
+    AllCols.each do |column|
+      if !schema.keys.include?(column)
+        raise "Could not find column: `#{column}` in CSV."
+      end
     end
 
     schema
@@ -131,8 +118,8 @@ class CsvParser
     is_mentee = (row[schema.fetch(IsMenteeCol)] || "yes") == "yes"
     is_mentor = (row[schema.fetch(IsMentorCol)] || "yes") == "yes"
     mentee_seniority_allowlist = (row[schema.fetch(MentorSeniorityAllowlistCol)] || "").split(",").map(&:strip)
-    mentor_city_denylist = (row[schema.fetch(MentorCityDenylistCol)] || "").split(",").map(&:strip)
-    mentee_city_denylist = (row[schema.fetch(MenteeCityDenylistCol)] || "").split(",").map(&:strip)
+    mentor_region_denylist = (row[schema.fetch(MentorRegionDenylistCol)] || "").split(",").map(&:strip)
+    mentee_region_denylist = (row[schema.fetch(MenteeRegionDenylistCol)] || "").split(",").map(&:strip)
 
     interests = [
       row[schema.fetch(ChildPsychInterestCol)],
@@ -157,8 +144,8 @@ class CsvParser
         is_mentee: is_mentee,
         is_mentor: is_mentor,
         mentee_seniority_allowlist: mentee_seniority_allowlist,
-        mentor_city_denylist: mentor_city_denylist,
-        mentee_city_denylist: mentee_city_denylist,
+        mentor_region_denylist: mentor_region_denylist,
+        mentee_region_denylist: mentee_region_denylist,
         interests: interests
       )
     end

@@ -15,8 +15,8 @@ class Person < T::Struct
   const :is_mentee, T::Boolean
   const :is_mentor, T::Boolean
   const :mentee_seniority_allowlist, T::Array[String]
-  const :mentor_city_denylist, T::Array[String]
-  const :mentee_city_denylist, T::Array[String]
+  const :mentor_region_denylist, T::Array[String]
+  const :mentee_region_denylist, T::Array[String]
 
   const :interests, T::Array[String]
 end

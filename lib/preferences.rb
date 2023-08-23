@@ -27,8 +27,8 @@ class Preferences
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
         .select {|other_person| other_person.rank - mentor.rank < 0}
-        # Reject any mentees on the city denylist
-        .reject {|other_person| mentor.mentee_city_denylist.include?(other_person.city)}
+        # Reject any mentees on the region denylist
+        .reject {|other_person| mentor.mentee_region_denylist.include?(other_person.region)}
 
       # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
       # (in descending order of priority).
@@ -68,8 +68,8 @@ class Preferences
         .select {|other_person| other_person.is_mentor}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
-        # Rule out anyone on the mentor_city_denylist
-        .reject {|other_person| mentee.mentor_city_denylist.include?(other_person.city)}
+        # Rule out anyone on the mentor_region_denylist
+        .reject {|other_person| mentee.mentor_region_denylist.include?(other_person.region)}
         # Only keep potential mentors who are more senior
         .select {|other_person| other_person.rank - mentee.rank > 0}
 
