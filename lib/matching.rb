@@ -28,7 +28,7 @@ class Matching
     )
     puts()
 
-    puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor}\t#{mentee}"}.join("\n"))
+    puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor},#{mentee}"}.join("\n"))
   end
 
   sig do
