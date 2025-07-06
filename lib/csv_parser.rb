@@ -4,6 +4,7 @@ require 'csv'
 require 'securerandom'
 require './lib/person'
 
+# CSV parser for one schema of CSV data (2023).
 class CsvParser
 
   extend T::Sig

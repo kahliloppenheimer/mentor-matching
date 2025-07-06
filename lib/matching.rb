@@ -6,10 +6,14 @@ require './lib/preferences'
 class Matching
   extend T::Sig
 
-  sig {params(people: T::Array[Person]).void}
+  sig {params(people: T::Array[Person2025]).void}
   def self.match(people)
     mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(people).reject {|person, preferences| preferences.empty?}
+    puts "Num mentees: #{people.size} #{mentees_to_preferences.keys.size}"
+
+    # mentors = people.select(&:is_mentor).flat_map{|person| (1..person.max_num_mentees).map{|i| person.with(id: "#{person.id}#{i}")}}
     mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(people).reject {|person, preferences| preferences.empty?}
+    puts "Num mentors: #{mentors_to_preferences.keys.size}"
 
     mentors_to_mentees = gale_shapley(proposers: mentees_to_preferences, acceptors: mentors_to_preferences)
 
@@ -26,18 +30,17 @@ class Matching
       mentors_to_preferences: mentors_to_preferences, 
       mentors_to_mentees: mentors_to_mentees
     )
-    puts()
 
     puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor},#{mentee}"}.join("\n"))
   end
 
   sig do
     params(
-      mentees: T::Array[String],
-      mentees_to_preferences: T::Hash[String, T::Array[String]],
-      mentors: T::Array[String],
-      mentors_to_preferences: T::Hash[String, T::Array[String]],
-      mentors_to_mentees: T::Hash[String, String]
+      mentees: T::Array[Person2025],
+      mentees_to_preferences: T::Hash[Person2025, T::Array[Person2025]],
+      mentors: T::Array[Person2025],
+      mentors_to_preferences: T::Hash[Person2025, T::Array[Person2025]],
+      mentors_to_mentees: T::Hash[Person2025, Person2025]
     ).void
   end
   private_class_method def self.compute_match_statistics(
@@ -90,37 +93,43 @@ class Matching
   # Returns Hash mapping proposers -> acceptors.
   sig do
     params(
-      proposers: T::Hash[String, T::Array[String]],
-      acceptors: T::Hash[String, T::Array[String]]
-    ).returns(T::Hash[String, String])
+      proposers: T::Hash[Person2025, T::Array[Person2025]],
+      acceptors: T::Hash[Person2025, T::Array[Person2025]],
+      # Represents how many proposers a given acceptor is willing to take (e.g. one mentor with multiple mentees)
+      acceptor_multiplicity: T::Hash[Person2025, Integer]
+    ).returns(T::Hash[Person2025, Person2025])
   end
   private_class_method def self.gale_shapley(
     proposers:,
-    acceptors:
+    acceptors:,
+    acceptor_multiplicity:
   )
-    proposers = T.cast(Marshal.load(Marshal.dump(proposers)), T::Hash[String, T::Array[String]])
-    acceptors = T.cast(Marshal.load(Marshal.dump(acceptors)), T::Hash[String, T::Array[String]])
+    proposers = T.cast(Marshal.load(Marshal.dump(proposers)), T::Hash[Person2025, T::Array[Person2025]])
+    acceptors = T.cast(Marshal.load(Marshal.dump(acceptors)), T::Hash[Person2025, T::Array[Person2025]])
 
     # Filter out any rankings of proposers/acceptors who did not reciprocally rank the acceptor/proposer.
     proposers = proposers.map {|proposer, preferences| [proposer, preferences.select {|acceptor| acceptors.fetch(acceptor).include?(proposer)}]}.to_h
     acceptors = acceptors.map {|acceptor, preferences| [acceptor, preferences.select {|proposer| proposers.fetch(proposer).include?(acceptor)}]}.to_h
 
-    matches = T.let({}, T::Hash[String, String])
+    matches = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
-    proposer = T.let(pick_next_proposer(proposers: proposers, matches: matches), T.nilable(String))
+    proposer = T.let(pick_next_proposer(proposers: proposers, matches: matches), T.nilable(Person2025))
 
     # While we have an active proposer with options, we continue.
     while !proposer.nil?
 
       top_choice = get_and_remove_top_choice(proposer, proposers)
 
-      existing_match = matches[top_choice]
-      if existing_match.nil?
-        matches[top_choice] = proposer
+      existing_matches = matches[top_choice]
+      if existing_matches.nil?
+        matches[top_choice] = [proposer]
       else
-        if prefers?(acceptor: top_choice, proposer1: proposer, proposer2: existing_match, acceptors: acceptors)
-          matches[top_choice] = proposer
+        for existing_match in existing_matches
+          if prefers?(acceptor: top_choice, proposer1: proposer, proposer2: existing_match, acceptors: acceptors)
+            matches[top_choice] = proposer
+          end
         end
+
       end
 
       proposer = pick_next_proposer(proposers: proposers, matches: matches)
@@ -131,25 +140,25 @@ class Matching
 
   sig do
     params(
-      proposers: T::Hash[String, T::Array[String]],
-      matches: T::Hash[String, String]
-    ).returns(T.nilable(String))
+      proposers: T::Hash[Person2025, T::Array[Person2025]],
+      matches: T::Hash[Person2025, T::Array[Person2025]]
+    ).returns(T.nilable(Person2025))
   end
   private_class_method def self.pick_next_proposer(proposers:, matches:)
     with_choices = proposers
       # only select proposers who have potential acceptors left.
       .select {|proposer, choices| !choices.empty?}
       # only select proposers who haven't already been matched.
-      .select {|proposer, _| !matches.values.include?(proposer)}
+      .select {|proposer, _| !matches.values.any?{|proposers| proposers.include?(proposer)}}
 
     with_choices.keys.first
   end
 
   sig do
     params(
-      proposer: String,
-      proposers: T::Hash[String, T::Array[String]]
-    ).returns(String)
+      proposer: Person2025,
+      proposers: T::Hash[Person2025, T::Array[Person2025]]
+    ).returns(Person2025)
   end
   private_class_method def self.get_and_remove_top_choice(proposer, proposers)
     T.must(proposers.fetch(proposer).shift)
@@ -157,10 +166,10 @@ class Matching
 
   sig do
     params(
-      acceptor: String,
-      proposer1: String,
-      proposer2: String,
-      acceptors: T::Hash[String, T::Array[String]]
+      acceptor: Person2025,
+      proposer1: Person2025,
+      proposer2: Person2025,
+      acceptors: T::Hash[Person2025, T::Array[Person2025]]
     ).returns(T::Boolean)
   end
   private_class_method def self.prefers?(acceptor:, proposer1:, proposer2:, acceptors:)

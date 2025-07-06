@@ -1,9 +1,11 @@
 # typed: strict
 require 'sorbet-runtime'
 
-extend T::Sig
+
 
 class Person < T::Struct
+  extend T::Sig
+
   const :id, String
   const :name, String
   const :city, String
