@@ -2,89 +2,137 @@
 require 'sorbet-runtime'
 require './lib/csv_parser'
 require './lib/preferences'
+require 'descriptive_statistics'
+
 
 class Matching
   extend T::Sig
 
+  sig {params(person: Person2025).returns(T::Array[Person2025])}
+  def self.multiplicity(person)
+    if person.max_num_mentees <= 1
+      return [person]
+    end
+
+    return (1..person.max_num_mentees).map{|i| person.with(id: "#{person.id}#{i}")}
+  end
+
   sig {params(people: T::Array[Person2025]).void}
   def self.match(people)
-    mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(people).reject {|person, preferences| preferences.empty?}
-    puts "Num mentees: #{people.size} #{mentees_to_preferences.keys.size}"
 
-    # mentors = people.select(&:is_mentor).flat_map{|person| (1..person.max_num_mentees).map{|i| person.with(id: "#{person.id}#{i}")}}
-    mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(people).reject {|person, preferences| preferences.empty?}
-    puts "Num mentors: #{mentors_to_preferences.keys.size}"
+    # To handle one mentor with multiple mentees, we create one Person object
+    # per relationship of them matching (e.g. 3 mentees means 3 person objects)
+    mentors = people.select(&:is_mentor).flat_map{|person| multiplicity(person)}
+    mentees = people.select(&:is_mentee)
 
-    mentors_to_mentees = gale_shapley(proposers: mentees_to_preferences, acceptors: mentors_to_preferences)
+    mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(mentees: mentees, mentors: mentors)
+    mentees_with_no_preferences = mentees_to_preferences.select {|_, preferences| preferences.empty?}.keys
+    if !mentees_with_no_preferences.empty?
+      puts "Filtering out #{mentees_with_no_preferences.size} mentees with no preferences:\n#{mentees_with_no_preferences}"
+      mentees_to_preferences = mentees_to_preferences.reject {|_, preferences| preferences.empty?}
+    end
+    puts "Num mentees: #{people.select(&:is_mentee).group_by(&:email).keys.size}"
 
-    mentees = mentees_to_preferences.select {|_, preferences| !preferences.empty?}.keys
-    mentors = mentors_to_preferences.select {|_, preferences| !preferences.empty?}.keys
+    mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(mentees: mentees, mentors: mentors)
+    mentors_with_no_preferences = mentors_to_preferences.select {|_, preferences| preferences.empty?}.keys
+    if !mentors_with_no_preferences.empty?
+      puts "Filtering out #{mentors_with_no_preferences.size} mentors with no preferences:\n"
+      mentors_to_preferences = mentors_to_preferences.reject {|_, preferences| preferences.empty?}
+    end
+    puts "Num mentors: #{people.select(&:is_mentor).group_by(&:email).keys.size}"
+    puts "Num mentor slots (accounting for multiple mentees per mentor): #{mentors_to_preferences.keys.size}"
+
+    matched_mentors_to_mentees = gale_shapley(proposers: mentees_to_preferences, acceptors: mentors_to_preferences)
 
     puts("\n\n")
     puts("*************RESULTS*************\n\n")
 
     compute_match_statistics(
-      mentees: mentees, 
+      matched_mentors_to_mentees: matched_mentors_to_mentees,
+      mentees: people.select(&:is_mentee), 
+      mentors: mentors.select(&:is_mentor), 
       mentees_to_preferences: mentees_to_preferences, 
-      mentors: mentors, 
       mentors_to_preferences: mentors_to_preferences, 
-      mentors_to_mentees: mentors_to_mentees
     )
 
-    puts("Mentors -> Mentees:\n\n", mentors_to_mentees.sort.map{|mentor, mentee| "#{mentor},#{mentee}"}.join("\n"))
+    puts("Mentors -> Mentees:\n\n", matched_mentors_to_mentees.map{|mentor, mentee| "#{mentor.name},#{mentee.name}"}.sort.join("\n"))
   end
 
   sig do
     params(
+      matched_mentors_to_mentees: T::Hash[Person2025, Person2025],
       mentees: T::Array[Person2025],
       mentees_to_preferences: T::Hash[Person2025, T::Array[Person2025]],
       mentors: T::Array[Person2025],
       mentors_to_preferences: T::Hash[Person2025, T::Array[Person2025]],
-      mentors_to_mentees: T::Hash[Person2025, Person2025]
     ).void
   end
   private_class_method def self.compute_match_statistics(
+    matched_mentors_to_mentees:,
     mentees:, 
     mentees_to_preferences:, 
     mentors:, 
-    mentors_to_preferences:, 
-    mentors_to_mentees:
+    mentors_to_preferences: 
   )
-    matched_mentees = mentors_to_mentees.values.uniq
-    matched_mentors = mentors_to_mentees.keys.uniq
+    matched_mentees = matched_mentors_to_mentees.values.map(&:email).uniq
+    matched_mentors = matched_mentors_to_mentees.keys.map(&:email).uniq
 
-    matched_mentee_count = mentees.select {|mentee| matched_mentees.include?(mentee)}.uniq.size
-    matched_mentor_count = mentors.select {|mentor| matched_mentors.include?(mentor)}.uniq.size
+    unique_mentees = mentees.map(&:email).uniq
+    unique_mentors = mentors.map(&:email).uniq
 
-    mentee_match_percent = (matched_mentee_count * 100.0 / mentees.uniq.size)
-    mentor_match_percent = (matched_mentor_count * 100.0 / mentors.uniq.size)
+    mentee_match_percent = (100.0 * matched_mentees.size / unique_mentees.size)
+    mentor_match_percent = (100.0 * matched_mentors.size / unique_mentors.size)
 
-    mentees_to_mentors = mentors_to_mentees.invert
+    mentees_to_mentors = matched_mentors_to_mentees.invert
 
-    mentees_to_ranked_results = matched_mentees.map do |mentee|
-      mentor = mentees_to_mentors.fetch(mentee)
+    mentees_to_ranked_results = mentees_to_mentors.map do |mentee, mentor|
       mentee_preferences = mentees_to_preferences.fetch(mentee)
       # Use 1-based indexing to represent first pick is 1
       mentor_rank = T.must(mentee_preferences.find_index(mentor)) + 1
       [mentee, mentor_rank]
     end.to_h
 
-    puts("Mentees to ranked results:")
-    mentees_to_ranked_results.values.sort
+    mentors_to_ranked_results = matched_mentors_to_mentees.map do |mentor, mentee|
+      mentor_preferences = mentors_to_preferences.fetch(mentor)
+      # Use 1-based indexing to represent first pick is 1
+      mentee_rank = T.must(mentor_preferences.find_index(mentee)) + 1
+      [mentor, mentee_rank]
+    end.to_h
 
-    puts("# matched mentees: #{matched_mentee_count}")
-    puts("# eligible mentees: #{mentees.size}")
+    puts("Median mentee # possible mentors = #{DescriptiveStatistics.median(mentees_to_preferences.values.map(&:size))}")
+    puts("Median mentee paired mentor rank (e.g. 4 means 4th best) = #{DescriptiveStatistics.median(mentees_to_ranked_results.values)}")
+    puts
+
+
+    puts("Median mentor # possible mentees = #{DescriptiveStatistics.median(mentors_to_preferences.values.map(&:size))}")
+    puts("Median mentor paired match rank (e.g. 4 means 4th best) = #{DescriptiveStatistics.median(mentors_to_ranked_results.values)}")
+    puts
+
+    puts("# Mentor / Mentee pairs in same state = #{matched_mentors_to_mentees.select {|mentor, mentee| mentor.state == mentee.state}.size} / #{matched_mentors_to_mentees.size}")
+    puts("Median seniority difference = #{DescriptiveStatistics.median(matched_mentors_to_mentees.map{|mentor, mentee| mentor.seniority - mentee.seniority})}")
+    puts
+
+    puts("# mentors preferring IMG = " \
+      "#{mentors.select(&:prefers_mentoring_international).size}")
+      
+    puts("# IMG mentees = " \
+      "#{mentees.select(&:is_international).size}")
+    
+    puts("# IMG mentees paired w/ mentors preferring IMG = " \
+    "#{matched_mentors_to_mentees.select {|mentor, mentee| mentor.prefers_mentoring_international && mentee.is_international}.size}")
+    puts
+
+    puts("# matched mentees: #{matched_mentees.count}")
+    puts("# eligible mentees: #{unique_mentees.size}")
     puts("% mentee match: #{mentee_match_percent}%")
-    unmatched_mentees = mentees.reject {|mentee| matched_mentees.include?(mentee)}
-    puts("\nUnmatched mentees (#{unmatched_mentees.size}): #{unmatched_mentees}\n\n")
+    unmatched_mentees = mentees.reject {|mentee| matched_mentees.include?(mentee.email)}
+    puts("\nUnmatched mentees (#{unmatched_mentees.size}): #{unmatched_mentees.map(&:email).sort}\n\n")
 
-    puts("# matched mentors: #{matched_mentor_count}")
-    puts ("# eligible mentors: #{mentors.size}")
+    puts("# matched mentors: #{matched_mentors.size}")
+    puts ("# eligible mentors: #{unique_mentors.size}")
     puts("% mentor match: #{mentor_match_percent}%")
-    unmatched_mentors = mentors.reject {|mentor| matched_mentors.include?(mentor)}
-    puts("\nUnmatched mentors (#{unmatched_mentors.size}): #{unmatched_mentors}\n\n")
-
-
+    unmatched_mentors = mentors.reject {|mentor| matched_mentors.include?(mentor.email)}.group_by(&:email).map(&:first)
+    puts("\nUnmatched mentors (#{unmatched_mentors.size}): #{unmatched_mentors.sort}\n\n")
   end
 
   # Takes input proposers and accepters as hash from IDs -> List of IDs in order of preference (descending)

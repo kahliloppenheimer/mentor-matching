@@ -145,6 +145,9 @@ class CsvParser2025
     if mentee_seniority_allowlist.size == 1 && mentee_seniority_allowlist[0] == 0
       mentee_seniority_allowlist = (0...seniority).to_a
     end
+    
+    max_num_mentees_str = T.must(row.fetch(schema.fetch(MaxNumMenteesCol)))
+    max_num_mentees = T.must(max_num_mentees_str.split(';').map(&:to_i).max)
 
     return Person2025.new(
       id: T.let(SecureRandom.alphanumeric, String),
@@ -157,7 +160,7 @@ class CsvParser2025
       is_international: is_international,
       prefers_mentoring_international: prefers_mentoring_international,
       mentee_seniority_allowlist: mentee_seniority_allowlist,
-      max_num_mentees: T.must(row.fetch(schema.fetch(MaxNumMenteesCol))).to_i
+      max_num_mentees: max_num_mentees
     )
   end
 end

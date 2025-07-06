@@ -35,7 +35,7 @@ class Person2025 < T::Struct
 
   sig {override.returns(String)}
   def to_s
-    "#{name} (#{id})"
+    "#{name} (#{email})"
   end
 
   sig {override.returns(String)}

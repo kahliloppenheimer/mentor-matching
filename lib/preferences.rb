@@ -7,11 +7,19 @@ class Preferences
 
   extend T::Sig
 
-  sig {params(people: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])}
-  def self.compute_mentor_to_mentee_preferences(people)
+  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])} 
+  def self.compute_mentor_to_mentee_preferences(mentees:, mentors:)
     preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
-    people.each do |mentor|
+    if !mentees.all?(&:is_mentee)
+      raise "Found non mentees!"
+    end
+
+    if !mentors.all?(&:is_mentor)
+      raise "Found non mentors!"
+    end
+
+    mentors.each do |mentor|
 
       if !mentor.is_mentor
         puts "Filtering out non-mentor #{mentor.name}"
@@ -19,7 +27,7 @@ class Preferences
         next
       end
 
-      potential_mentees = people
+      potential_mentees = mentees
         # Only keep people who want to be mentees.
         .select {|other_person| other_person.is_mentee}
         # Only keep mentees that match the mentor's seniority allowlist (if there is one).
@@ -37,9 +45,10 @@ class Preferences
       # (in descending order of priority).
       preferred_mentees = potential_mentees.sort do |p1, p2|
         comparisons = [
+          compare_international_preference(mentor: mentor, p1: p1, p2: p1),
           mentor.mentee_seniority_allowlist.include?(p1.seniority) ? 1 : 0,
-          compare_rank(target_rank: mentor.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
           compare_preferring_target(target: mentor.state, a: p1.state, b: p2.state),
+          compare_rank(target_rank: mentor.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
 
         final_comparison = sort_by_comparison_list(comparisons)
@@ -54,20 +63,20 @@ class Preferences
     preferences
   end
 
-  sig {params(people: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])}
-  def self.compute_mentee_to_mentor_preferences(people)
+  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])}
+  def self.compute_mentee_to_mentor_preferences(mentees:, mentors:)
     preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
-    people.each do |mentee|
+    if !mentees.all?(&:is_mentee)
+      raise "Found non mentees!"
+    end
 
-      if !mentee.is_mentee
-        preferences[mentee] = []
-        next
-      end
-      
-      potential_mentors = people
-        # Only keep people who want to be mentors
-        .select {|other_person| other_person.is_mentor}
+    if !mentors.all?(&:is_mentor)
+      raise "Found non mentors!"
+    end
+
+    mentees.each do |mentee|
+      potential_mentors = mentors
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
         # Only keep potential mentors who are more senior
@@ -79,8 +88,9 @@ class Preferences
       # - state (prefer closeness)
       preferred_mentors = potential_mentors.sort do |p1, p2|
         comparisons = [
-          compare_rank(target_rank: mentee.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
+          mentee.is_international ? compare_preferring_target(target: true, a: p1.prefers_mentoring_international, b: p2.prefers_mentoring_international) : 0,
           compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
+          compare_rank(target_rank: mentee.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
 
         final_comparison = sort_by_comparison_list(comparisons)
@@ -109,6 +119,30 @@ class Preferences
 
   sig do
     params(
+      mentor: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_international_preference(mentor:, p1:, p2:)
+    if !mentor.prefers_mentoring_international
+      return 0
+    end
+
+    if p1.is_international && !p2.is_international
+      return 1
+    end
+
+    if !p1.is_international && p2.is_international
+      return -1
+    end
+
+    return 0
+
+  end
+
+  sig do
+    params(
       target_rank: Integer,
       p1_rank: Integer,
       p2_rank: Integer
@@ -117,7 +151,7 @@ class Preferences
   private_class_method def self.compare_rank(target_rank:, p1_rank:, p2_rank:)
     p1_rank_difference = (p1_rank - target_rank).abs
     p2_rank_difference = (p2_rank - target_rank).abs
-
+    
     # Reverse the comparison, since we prefer a lower rank difference (e.g. closer two ranks/seniorities).
     p2_rank_difference <=> p1_rank_difference
   end
