@@ -95,14 +95,11 @@ class Matching
     params(
       proposers: T::Hash[Person2025, T::Array[Person2025]],
       acceptors: T::Hash[Person2025, T::Array[Person2025]],
-      # Represents how many proposers a given acceptor is willing to take (e.g. one mentor with multiple mentees)
-      acceptor_multiplicity: T::Hash[Person2025, Integer]
     ).returns(T::Hash[Person2025, Person2025])
   end
   private_class_method def self.gale_shapley(
     proposers:,
-    acceptors:,
-    acceptor_multiplicity:
+    acceptors:
   )
     proposers = T.cast(Marshal.load(Marshal.dump(proposers)), T::Hash[Person2025, T::Array[Person2025]])
     acceptors = T.cast(Marshal.load(Marshal.dump(acceptors)), T::Hash[Person2025, T::Array[Person2025]])
@@ -111,7 +108,7 @@ class Matching
     proposers = proposers.map {|proposer, preferences| [proposer, preferences.select {|acceptor| acceptors.fetch(acceptor).include?(proposer)}]}.to_h
     acceptors = acceptors.map {|acceptor, preferences| [acceptor, preferences.select {|proposer| proposers.fetch(proposer).include?(acceptor)}]}.to_h
 
-    matches = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
+    matches = T.let({}, T::Hash[Person2025, Person2025])
 
     proposer = T.let(pick_next_proposer(proposers: proposers, matches: matches), T.nilable(Person2025))
 
@@ -120,16 +117,13 @@ class Matching
 
       top_choice = get_and_remove_top_choice(proposer, proposers)
 
-      existing_matches = matches[top_choice]
-      if existing_matches.nil?
-        matches[top_choice] = [proposer]
+      existing_match = matches[top_choice]
+      if existing_match.nil?
+        matches[top_choice] = proposer
       else
-        for existing_match in existing_matches
-          if prefers?(acceptor: top_choice, proposer1: proposer, proposer2: existing_match, acceptors: acceptors)
-            matches[top_choice] = proposer
-          end
+        if prefers?(acceptor: top_choice, proposer1: proposer, proposer2: existing_match, acceptors: acceptors)
+          matches[top_choice] = proposer
         end
-
       end
 
       proposer = pick_next_proposer(proposers: proposers, matches: matches)
@@ -141,7 +135,7 @@ class Matching
   sig do
     params(
       proposers: T::Hash[Person2025, T::Array[Person2025]],
-      matches: T::Hash[Person2025, T::Array[Person2025]]
+      matches: T::Hash[Person2025, Person2025]
     ).returns(T.nilable(Person2025))
   end
   private_class_method def self.pick_next_proposer(proposers:, matches:)
@@ -149,7 +143,7 @@ class Matching
       # only select proposers who have potential acceptors left.
       .select {|proposer, choices| !choices.empty?}
       # only select proposers who haven't already been matched.
-      .select {|proposer, _| !matches.values.any?{|proposers| proposers.include?(proposer)}}
+      .select {|proposer, _| !matches.values.include?(proposer)}
 
     with_choices.keys.first
   end
