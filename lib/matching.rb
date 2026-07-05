@@ -3,6 +3,7 @@ require 'sorbet-runtime'
 require './lib/csv_parser'
 require './lib/preferences'
 require 'descriptive_statistics'
+require 'set'
 
 
 class Matching
@@ -17,15 +18,19 @@ class Matching
     return (1..person.max_num_mentees).map{|i| person.with(id: "#{person.id}#{i}")}
   end
 
-  sig {params(people: T::Array[Person2025]).void}
-  def self.match(people)
+  sig {params(people: T::Array[Person2025], previously_matched: T::Set[String]).void}
+  def self.match(people, previously_matched: Set.new)
 
     # To handle one mentor with multiple mentees, we create one Person object
     # per relationship of them matching (e.g. 3 mentees means 3 person objects)
     mentors = people.select(&:is_mentor).flat_map{|person| multiplicity(person)}
     mentees = people.select(&:is_mentee)
 
-    mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(mentees: mentees, mentors: mentors)
+    if !previously_matched.empty?
+      puts "Excluding #{previously_matched.size} previously-matched pair(s) from consideration"
+    end
+
+    mentees_to_preferences = Preferences.compute_mentee_to_mentor_preferences(mentees: mentees, mentors: mentors, previously_matched: previously_matched)
     mentees_with_no_preferences = mentees_to_preferences.select {|_, preferences| preferences.empty?}.keys
     if !mentees_with_no_preferences.empty?
       puts "Filtering out #{mentees_with_no_preferences.size} mentees with no preferences:\n#{mentees_with_no_preferences}"
@@ -33,7 +38,7 @@ class Matching
     end
     puts "Num mentees: #{people.select(&:is_mentee).group_by(&:email).keys.size}"
 
-    mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(mentees: mentees, mentors: mentors)
+    mentors_to_preferences = Preferences.compute_mentor_to_mentee_preferences(mentees: mentees, mentors: mentors, previously_matched: previously_matched)
     mentors_with_no_preferences = mentors_to_preferences.select {|_, preferences| preferences.empty?}.keys
     if !mentors_with_no_preferences.empty?
       puts "Filtering out #{mentors_with_no_preferences.size} mentors with no preferences:\n"

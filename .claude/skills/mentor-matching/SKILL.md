@@ -21,7 +21,10 @@ how many mentees would you be willing to mentor?
 ```
 
 Your job is to get from "whatever spreadsheet they hand you" to that exact shape,
-with their sign-off at each judgment call, then run the program.
+with their sign-off at each judgment call, then run the program. They can also
+optionally hand you last year's match results to avoid repeating the same pairings
+(`lib/application.rb` takes it as an optional second argument, parsed by
+`lib/previous_matches.rb`).
 
 ## Steps
 
@@ -100,12 +103,56 @@ might contain a comma (e.g. the mentee-seniority-allowlist column).
 Show the user a short summary before running: counts of mentors/mentees, and any
 rows you skipped or flagged.
 
-### 7. Run the match
+### 7. Optional: don't repeat last year's pairings
+Ask if they have last year's match results and want to avoid repeat pairings. If
+so, get that file too — it's usually messier than you'd expect: real exports seen
+so far have **no real header row** (just a junk title line like `Mentees,,Mentors,`)
+and are purely positional (mentee name, mentee email, mentor name, mentor email).
+Read a few rows defensively (same caution as step 2 — prefer Python's `csv` module),
+confirm which columns are which with the user if it's not obvious from content
+(e.g. which columns look like emails), then write
+`tmp/<timestamp>_previous_matches.csv` with exactly these headers (any other
+columns, e.g. names, are ignored by the program):
+
 ```
-bundle exec ruby lib/application.rb tmp/<timestamp>_normalized.csv
+mentor_email,mentee_email
+```
+
+Plain `CSV` defaults are fine here (no `\r\n` requirement, unlike step 6 — that's
+specific to `CsvParser2025`). A pairing is excluded regardless of which person is
+mentor vs. mentee this year — if two people were matched last year in either
+direction, they won't be re-paired.
+
+### 8. Validate both CSVs before running anything
+Don't hand the normalized file(s) straight to the full match — validate first by
+actually parsing them with the program's own classes, so column/format problems
+surface immediately instead of showing up as a confusing crash mid-run or (worse)
+silently wrong results:
+
+```
+bundle exec ruby -r./lib/csv_parser_2025 -e 'CsvParser2025.parse(ARGV[0])' tmp/<timestamp>_normalized.csv
+bundle exec ruby -r./lib/previous_matches -e 'PreviousMatches.parse(ARGV[0])' tmp/<timestamp>_previous_matches.csv
+```
+
+Both classes raise a clear, specific error message on bad input (missing required
+column, duplicate name/email, missing seniority, invalid boolean value, etc. — see
+`lib/csv_parser_2025.rb` and `lib/previous_matches.rb`). When one raises:
+- If the fix is unambiguous (a typo'd header, a stray blank row, wrong row
+  separator) — fix the normalized CSV yourself and re-validate. Don't ask the user
+  to do something you can just do.
+- If the fix is ambiguous (e.g. "found people with multiple entries" — a real
+  duplicate sign-up where you can't tell which entry is authoritative) — stop, quote
+  the exact error and the specific row(s), and ask the user how to resolve it.
+
+Only move on to step 9 once both validations pass cleanly.
+
+### 9. Run the match
+```
+bundle exec ruby lib/application.rb tmp/<timestamp>_normalized.csv tmp/<timestamp>_previous_matches.csv
 ```
 (Note: `bundle exec lib/application.rb`, without `ruby`, fails with "not
-executable" — the file has no shebang/exec bit.)
+executable" — the file has no shebang/exec bit. The second argument is optional —
+omit it if there's no previous-matches file.)
 
 Save the full output to `tmp/<timestamp>_results.txt` and summarize the key stats
 (match %, median ranks, unmatched counts) back to the user in plain language.
@@ -119,7 +166,7 @@ not just the name. The output already distinguishes two cases:
   earlier — they had eligible preferences but lost out during the stable-matching
   process (their preferred matches were claimed by higher-priority competitors).
 
-### 8. Produce a CSV of the results
+### 10. Produce a CSV of the results
 Don't hand back the raw `Mentees -> Mentors:` text block from step 7 as the
 deliverable — some emails contain stray `;` characters (people pasting two emails
 into one field), which breaks naive splitting on that log format. Instead, derive

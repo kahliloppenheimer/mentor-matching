@@ -1,14 +1,22 @@
 # typed: strict
 require 'sorbet-runtime'
 require './lib/person'
+require './lib/previous_matches'
 require 'pry-byebug'
+require 'set'
 
 class Preferences
 
   extend T::Sig
 
-  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])} 
-  def self.compute_mentor_to_mentee_preferences(mentees:, mentors:)
+  sig do
+    params(
+      mentees: T::Array[Person2025],
+      mentors: T::Array[Person2025],
+      previously_matched: T::Set[String]
+    ).returns(T::Hash[Person2025, T::Array[Person2025]])
+  end
+  def self.compute_mentor_to_mentee_preferences(mentees:, mentors:, previously_matched: Set.new)
     preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
     if !mentees.all?(&:is_mentee)
@@ -34,6 +42,8 @@ class Preferences
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
         .select {|other_person| other_person.seniority < mentor.seniority}
+        # Don't repeat a mentor/mentee pairing from a previous year.
+        .reject {|other_person| previously_matched.include?(PreviousMatches.pair_key(mentor.email, other_person.email))}
 
       if potential_mentees.size == 0
         puts "Could not find any potential mentees for #{mentor.name}"
@@ -61,8 +71,14 @@ class Preferences
     preferences
   end
 
-  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])}
-  def self.compute_mentee_to_mentor_preferences(mentees:, mentors:)
+  sig do
+    params(
+      mentees: T::Array[Person2025],
+      mentors: T::Array[Person2025],
+      previously_matched: T::Set[String]
+    ).returns(T::Hash[Person2025, T::Array[Person2025]])
+  end
+  def self.compute_mentee_to_mentor_preferences(mentees:, mentors:, previously_matched: Set.new)
     preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
     if !mentees.all?(&:is_mentee)
@@ -79,6 +95,8 @@ class Preferences
         .reject {|other_person| mentee == other_person}
         # Only keep potential mentors who are more senior
         .select {|other_person| other_person.seniority > mentee.seniority}
+        # Don't repeat a mentor/mentee pairing from a previous year.
+        .reject {|other_person| previously_matched.include?(PreviousMatches.pair_key(other_person.email, mentee.email))}
 
       # Perform a cascading comparison where we sort (from most to least important):
       # - difference in seniority (prefer closeness)
