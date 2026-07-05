@@ -39,7 +39,7 @@ terminal or want help preparing your data first.
 Use this if you already have a CSV matching the exact columns below.
 ```
 bundle
-bundle exec ruby lib/application.rb ~/path_to_csv.csv
+bundle exec ruby lib/application.rb ~/path_to_csv.csv [~/path_to_previous_matches.csv]
 ```
 
 ##### Expected CSV columns
@@ -52,6 +52,12 @@ name, email, state, seniority, is a mentor?, is a mentee?, img?, prefer mentorin
   (blank = anyone more junior)
 - `how many mentees would you be willing to mentor?`: integer (or semicolon-separated
   list; the max is used)
+
+##### Optional: avoid repeating last year's pairings
+Pass a second CSV of previous matches to prevent the same mentor/mentee pairing from
+repeating. It needs `mentor_email` and `mentee_email` columns (any other columns are
+ignored); a pairing is excluded regardless of which person is mentor vs. mentee this
+year.
 
 #### Option 2: Run as a Claude Code skill
 Use this if you have a raw spreadsheet export (Google Forms/Sheets, Excel) that
