@@ -55,7 +55,7 @@ class Matching
       mentors_to_preferences: mentors_to_preferences, 
     )
 
-    puts("Mentors -> Mentees:\n\n", matched_mentors_to_mentees.map{|mentor, mentee| "#{mentor.name},#{mentee.name}"}.sort.join("\n"))
+    puts("Mentees -> Mentors:\n\n", matched_mentors_to_mentees.map{|mentor, mentee| "#{mentee.name};#{mentee.email};#{mentor.name};#{mentor.email}"}.sort.join("\n"))
   end
 
   sig do

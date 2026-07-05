@@ -30,8 +30,6 @@ class Preferences
       potential_mentees = mentees
         # Only keep people who want to be mentees.
         .select {|other_person| other_person.is_mentee}
-        # Only keep mentees that match the mentor's seniority allowlist (if there is one).
-        # .select {|other_person| mentor.mentee_seniority_allowlist.empty? || mentor.mentee_seniority_allowlist.include?(other_person.seniority)}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
@@ -45,8 +43,8 @@ class Preferences
       # (in descending order of priority).
       preferred_mentees = potential_mentees.sort do |p1, p2|
         comparisons = [
-          compare_international_preference(mentor: mentor, p1: p1, p2: p1),
-          mentor.mentee_seniority_allowlist.include?(p1.seniority) ? 1 : 0,
+          compare_international_preference_for_mentor(mentor: mentor, p1: p1, p2: p2),
+          compare_mentee_seniority_allowlist(mentor: mentor, p1: p1, p2: p2),
           compare_preferring_target(target: mentor.state, a: p1.state, b: p2.state),
           compare_rank(target_rank: mentor.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
@@ -83,12 +81,11 @@ class Preferences
         .select {|other_person| other_person.seniority > mentee.seniority}
 
       # Perform a cascading comparison where we sort (from most to least important):
-      # - mentee_seniority_allowlist
       # - difference in seniority (prefer closeness)
       # - state (prefer closeness)
       preferred_mentors = potential_mentors.sort do |p1, p2|
         comparisons = [
-          mentee.is_international ? compare_preferring_target(target: true, a: p1.prefers_mentoring_international, b: p2.prefers_mentoring_international) : 0,
+          compare_international_preference_for_mentee(mentee: mentee, p1: p1, p2: p2),
           compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
           compare_rank(target_rank: mentee.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
@@ -117,6 +114,29 @@ class Preferences
     0
   end
 
+    sig do
+    params(
+      mentee: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_international_preference_for_mentee(mentee:, p1:, p2:)
+    if !mentee.is_international
+      return 0
+    end
+
+    if p1.prefers_mentoring_international && !p2.prefers_mentoring_international
+      return 1
+    end
+
+    if !p1.prefers_mentoring_international && p2.prefers_mentoring_international
+      return -1
+    end
+
+    return 0
+  end
+
   sig do
     params(
       mentor: Person2025,
@@ -124,7 +144,7 @@ class Preferences
       p2: Person2025
     ).returns(Integer)
   end
-  private_class_method def self.compare_international_preference(mentor:, p1:, p2:)
+  private_class_method def self.compare_international_preference_for_mentor(mentor:, p1:, p2:)
     if !mentor.prefers_mentoring_international
       return 0
     end
@@ -165,6 +185,26 @@ class Preferences
   end
   private_class_method def self.compare_interests(mentee, p1, p2)
     mentee.interests.intersection(p1.interests.intersection).size <=> mentee.interests.intersection(p2.interests).size
+  end
+
+  sig do
+    params(
+      mentor: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_mentee_seniority_allowlist(mentor:, p1:, p2:)
+    allowlist = mentor.mentee_seniority_allowlist
+    if allowlist.include?(p1.seniority) && !allowlist.include?(p2.seniority)
+      return 1
+    end
+
+    if !allowlist.include?(p1.seniority) && allowlist.include?(p2.seniority)
+      return -1
+    end
+
+    return 0
   end
 
 
