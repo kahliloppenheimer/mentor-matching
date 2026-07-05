@@ -7,39 +7,46 @@ class Preferences
 
   extend T::Sig
 
-  sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
-  def self.compute_mentor_to_mentee_preferences(people)
-    preferences = T.let({}, T::Hash[String, T::Array[String]])
+  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])} 
+  def self.compute_mentor_to_mentee_preferences(mentees:, mentors:)
+    preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
-    people.each do |mentor|
+    if !mentees.all?(&:is_mentee)
+      raise "Found non mentees!"
+    end
+
+    if !mentors.all?(&:is_mentor)
+      raise "Found non mentors!"
+    end
+
+    mentors.each do |mentor|
 
       if !mentor.is_mentor
-        preferences[mentor.name] = []
+        puts "Filtering out non-mentor #{mentor.name}"
+        preferences[mentor] = []
         next
       end
 
-      potential_mentees = people
+      potential_mentees = mentees
         # Only keep people who want to be mentees.
         .select {|other_person| other_person.is_mentee}
-        # Only keep mentees that match the mentor's seniority allowlist (if there is one).
-        .select {|other_person| mentor.mentee_seniority_allowlist.empty? || mentor.mentee_seniority_allowlist.include?(other_person.seniority)}
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentor == other_person}
         # Only keep potential mentees who are more junior.
-        .select {|other_person| other_person.rank - mentor.rank < 0}
-        # Reject any mentees who are on the person_denylist.
-        .reject {|other_person| mentor.person_denylist.include?(other_person.name)}
-        # Reject any mentees on the region denylist
-        .reject {|other_person| mentor.mentee_region_denylist.include?(other_person.region)}
+        .select {|other_person| other_person.seniority < mentor.seniority}
+
+      if potential_mentees.size == 0
+        puts "Could not find any potential mentees for #{mentor.name}"
+      end
 
       # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
       # (in descending order of priority).
       preferred_mentees = potential_mentees.sort do |p1, p2|
         comparisons = [
-          compare_rank(target_rank: mentor.rank, p1_rank: p1.rank, p2_rank: p2.rank),
-          compare_preferring_target(target: mentor.city, a: p1.city, b: p2.city),
+          compare_international_preference_for_mentor(mentor: mentor, p1: p1, p2: p2),
+          compare_mentee_seniority_allowlist(mentor: mentor, p1: p1, p2: p2),
           compare_preferring_target(target: mentor.state, a: p1.state, b: p2.state),
-          compare_preferring_target(target: mentor.region, a: p1.region, b: p2.region)
+          compare_rank(target_rank: mentor.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
 
         final_comparison = sort_by_comparison_list(comparisons)
@@ -48,45 +55,39 @@ class Preferences
         -1 * final_comparison
       end
 
-      preferences[mentor.name] = preferred_mentees.map(&:name)
+      preferences[mentor] = preferred_mentees
     end
 
     preferences
   end
 
-  sig {params(people: T::Array[Person]).returns(T::Hash[String, T::Array[String]])}
-  def self.compute_mentee_to_mentor_preferences(people)
-    preferences = T.let({}, T::Hash[String, T::Array[String]])
+  sig {params(mentees: T::Array[Person2025], mentors: T::Array[Person2025]).returns(T::Hash[Person2025, T::Array[Person2025]])}
+  def self.compute_mentee_to_mentor_preferences(mentees:, mentors:)
+    preferences = T.let({}, T::Hash[Person2025, T::Array[Person2025]])
 
-    people.each do |mentee|
+    if !mentees.all?(&:is_mentee)
+      raise "Found non mentees!"
+    end
 
-      if !mentee.is_mentee
-        preferences[mentee.name] = []
-        next
-      end
-      
-      potential_mentors = people
-        # Only keep people who want to be mentors
-        .select {|other_person| other_person.is_mentor}
+    if !mentors.all?(&:is_mentor)
+      raise "Found non mentors!"
+    end
+
+    mentees.each do |mentee|
+      potential_mentors = mentors
         # Rule out yourself as a potential mentor.
         .reject {|other_person| mentee == other_person}
         # Only keep potential mentors who are more senior
-        .select {|other_person| other_person.rank - mentee.rank > 0}
-        # Reject any mentors who are on the person_denylist.
-        .reject {|other_person| mentee.person_denylist.include?(other_person.name)}
-        # Rule out mentors on the mentor_region_denylist
-        .reject {|other_person| mentee.mentor_region_denylist.include?(other_person.region)}
+        .select {|other_person| other_person.seniority > mentee.seniority}
 
-      # Perform a cascading comparison where we sort based on adjacent seniority, city, state, then region
-      # (in descending order of priority).
+      # Perform a cascading comparison where we sort (from most to least important):
+      # - difference in seniority (prefer closeness)
+      # - state (prefer closeness)
       preferred_mentors = potential_mentors.sort do |p1, p2|
         comparisons = [
-          p1.mentee_seniority_allowlist.include?(mentee.seniority) ? 1 : 0,
-          compare_rank(target_rank: mentee.rank, p1_rank: p1.rank, p2_rank: p2.rank),
-          # compare_preferring_target(target: mentee.city, a: p1.city, b: p2.city),
-          # compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
-          compare_preferring_target(target: mentee.region, a: p1.region, b: p2.region),
-          compare_interests(mentee, p1, p2)
+          compare_international_preference_for_mentee(mentee: mentee, p1: p1, p2: p2),
+          compare_preferring_target(target: mentee.state, a: p1.state, b: p2.state),
+          compare_rank(target_rank: mentee.seniority, p1_rank: p1.seniority, p2_rank: p2.seniority),
         ]
 
         final_comparison = sort_by_comparison_list(comparisons)
@@ -95,7 +96,7 @@ class Preferences
         -1 * final_comparison
       end
 
-      preferences[mentee.name] = preferred_mentors.map(&:name)
+      preferences[mentee] = preferred_mentors
     end
 
     preferences
@@ -113,6 +114,53 @@ class Preferences
     0
   end
 
+    sig do
+    params(
+      mentee: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_international_preference_for_mentee(mentee:, p1:, p2:)
+    if !mentee.is_international
+      return 0
+    end
+
+    if p1.prefers_mentoring_international && !p2.prefers_mentoring_international
+      return 1
+    end
+
+    if !p1.prefers_mentoring_international && p2.prefers_mentoring_international
+      return -1
+    end
+
+    return 0
+  end
+
+  sig do
+    params(
+      mentor: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_international_preference_for_mentor(mentor:, p1:, p2:)
+    if !mentor.prefers_mentoring_international
+      return 0
+    end
+
+    if p1.is_international && !p2.is_international
+      return 1
+    end
+
+    if !p1.is_international && p2.is_international
+      return -1
+    end
+
+    return 0
+
+  end
+
   sig do
     params(
       target_rank: Integer,
@@ -123,7 +171,7 @@ class Preferences
   private_class_method def self.compare_rank(target_rank:, p1_rank:, p2_rank:)
     p1_rank_difference = (p1_rank - target_rank).abs
     p2_rank_difference = (p2_rank - target_rank).abs
-
+    
     # Reverse the comparison, since we prefer a lower rank difference (e.g. closer two ranks/seniorities).
     p2_rank_difference <=> p1_rank_difference
   end
@@ -137,6 +185,26 @@ class Preferences
   end
   private_class_method def self.compare_interests(mentee, p1, p2)
     mentee.interests.intersection(p1.interests.intersection).size <=> mentee.interests.intersection(p2.interests).size
+  end
+
+  sig do
+    params(
+      mentor: Person2025,
+      p1: Person2025,
+      p2: Person2025
+    ).returns(Integer)
+  end
+  private_class_method def self.compare_mentee_seniority_allowlist(mentor:, p1:, p2:)
+    allowlist = mentor.mentee_seniority_allowlist
+    if allowlist.include?(p1.seniority) && !allowlist.include?(p2.seniority)
+      return 1
+    end
+
+    if !allowlist.include?(p1.seniority) && allowlist.include?(p2.seniority)
+      return -1
+    end
+
+    return 0
   end
 
 

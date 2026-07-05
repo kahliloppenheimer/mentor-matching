@@ -33,7 +33,7 @@ At a high level, the program does the following:
 ### How to run
 ```
 bundle
-ruby exec application ~/path_to_csv.csv
+bundle exec lib/application.rb ~/path_to_csv.csv
 ```
 
 ### Expected CSV columns
