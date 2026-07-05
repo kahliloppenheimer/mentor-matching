@@ -31,12 +31,37 @@ At a high level, the program does the following:
   b. Eligible mentors are anyone above the lowest seniority with a `yes` value for `Is a Mentor?`
 
 ### How to run
+
+There are two ways to run this, depending on whether you're comfortable in a
+terminal or want help preparing your data first.
+
+#### Option 1: Run as a script
+Use this if you already have a CSV matching the exact columns below.
 ```
 bundle
-bundle exec lib/application.rb ~/path_to_csv.csv
+bundle exec ruby lib/application.rb ~/path_to_csv.csv
 ```
 
-### Expected CSV columns
+##### Expected CSV columns
 ```
-Name, City, State, Region, Seniority, Child Psych Interest, Research Interest, Leadership Interest, Academic Med Interest, Forensics Addiction, DEI, Women's mental health, Is a mentee?, Is a mentor?, Only Mentors, Person Denylist, Mentor Region Denylist, Mentee Region Denylist
+name, email, state, seniority, is a mentor?, is a mentee?, img?, prefer mentoring img?, who would you be interested in mentoring?, how many mentees would you be willing to mentor?
 ```
+- `seniority`: integer, higher = more senior
+- `is a mentor?` / `is a mentee?` / `img?` / `prefer mentoring img?`: `0` or `1`
+- `who would you be interested in mentoring?`: comma-separated seniority integers
+  (blank = anyone more junior)
+- `how many mentees would you be willing to mentor?`: integer (or semicolon-separated
+  list; the max is used)
+
+#### Option 2: Run as a Claude Code skill
+Use this if you have a raw spreadsheet export (Google Forms/Sheets, Excel) that
+doesn't already match the columns above — no coding knowledge required.
+
+1. Install [Claude Code](https://claude.com/claude-code) and open this repo's folder
+   with it (`claude` in a terminal, from this directory).
+2. Tell it what you want, e.g. "I have a spreadsheet of mentor/mentee sign-ups, help
+   me match them." It'll ask for your CSV, walk you through mapping and cleaning up
+   your columns, confirm anything ambiguous with you, then run the match.
+3. Results are saved under `tmp/` and summarized back to you in the chat.
+
+See `.claude/skills/mentor-matching/SKILL.md` for exactly what it does.
