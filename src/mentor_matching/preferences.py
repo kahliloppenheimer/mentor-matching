@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cmp_to_key
 
-from mentor_matching.models import Person2025
+from mentor_matching.models import Person
 from mentor_matching.previous_matches import PreviousMatches
 
 
@@ -10,12 +10,12 @@ class Preferences:
     @classmethod
     def compute_mentor_to_mentee_preferences(
         cls,
-        mentees: list[Person2025],
-        mentors: list[Person2025],
+        mentees: list[Person],
+        mentors: list[Person],
         previously_matched: set[str] | None = None,
-    ) -> dict[Person2025, list[Person2025]]:
+    ) -> dict[Person, list[Person]]:
         excluded_pairs = previously_matched or set()
-        preferences: dict[Person2025, list[Person2025]] = {}
+        preferences: dict[Person, list[Person]] = {}
 
         if not all(person.is_mentee for person in mentees):
             raise RuntimeError("Found non mentees!")
@@ -31,7 +31,7 @@ class Preferences:
                 and other_person.seniority < mentor.seniority
                 and PreviousMatches.pair_key(mentor.email, other_person.email) not in excluded_pairs
             ]
-            def mentor_comparator(p1: Person2025, p2: Person2025) -> int:
+            def mentor_comparator(p1: Person, p2: Person) -> int:
                 return cls._mentor_preference_comparator(mentor=mentor, p1=p1, p2=p2)
 
             preferred_mentees = sorted(
@@ -45,12 +45,12 @@ class Preferences:
     @classmethod
     def compute_mentee_to_mentor_preferences(
         cls,
-        mentees: list[Person2025],
-        mentors: list[Person2025],
+        mentees: list[Person],
+        mentors: list[Person],
         previously_matched: set[str] | None = None,
-    ) -> dict[Person2025, list[Person2025]]:
+    ) -> dict[Person, list[Person]]:
         excluded_pairs = previously_matched or set()
-        preferences: dict[Person2025, list[Person2025]] = {}
+        preferences: dict[Person, list[Person]] = {}
 
         if not all(person.is_mentee for person in mentees):
             raise RuntimeError("Found non mentees!")
@@ -65,7 +65,7 @@ class Preferences:
                 and other_person.seniority > mentee.seniority
                 and PreviousMatches.pair_key(other_person.email, mentee.email) not in excluded_pairs
             ]
-            def mentee_comparator(p1: Person2025, p2: Person2025) -> int:
+            def mentee_comparator(p1: Person, p2: Person) -> int:
                 return cls._mentee_preference_comparator(mentee=mentee, p1=p1, p2=p2)
 
             preferred_mentors = sorted(
@@ -77,7 +77,7 @@ class Preferences:
         return preferences
 
     @classmethod
-    def _mentor_preference_comparator(cls, mentor: Person2025, p1: Person2025, p2: Person2025) -> int:
+    def _mentor_preference_comparator(cls, mentor: Person, p1: Person, p2: Person) -> int:
         comparisons = (
             cls._compare_international_preference_for_mentor(mentor=mentor, p1=p1, p2=p2),
             cls._compare_mentee_seniority_allowlist(mentor=mentor, p1=p1, p2=p2),
@@ -87,7 +87,7 @@ class Preferences:
         return -1 * cls._sort_by_comparison_list(comparisons)
 
     @classmethod
-    def _mentee_preference_comparator(cls, mentee: Person2025, p1: Person2025, p2: Person2025) -> int:
+    def _mentee_preference_comparator(cls, mentee: Person, p1: Person, p2: Person) -> int:
         comparisons = (
             cls._compare_international_preference_for_mentee(mentee=mentee, p1=p1, p2=p2),
             cls._compare_preferring_target(target=mentee.state, a=p1.state, b=p2.state),
@@ -103,7 +103,7 @@ class Preferences:
         return 0
 
     @staticmethod
-    def _compare_international_preference_for_mentee(mentee: Person2025, p1: Person2025, p2: Person2025) -> int:
+    def _compare_international_preference_for_mentee(mentee: Person, p1: Person, p2: Person) -> int:
         if not mentee.is_international:
             return 0
         if p1.prefers_mentoring_international and not p2.prefers_mentoring_international:
@@ -113,7 +113,7 @@ class Preferences:
         return 0
 
     @staticmethod
-    def _compare_international_preference_for_mentor(mentor: Person2025, p1: Person2025, p2: Person2025) -> int:
+    def _compare_international_preference_for_mentor(mentor: Person, p1: Person, p2: Person) -> int:
         if not mentor.prefers_mentoring_international:
             return 0
         if p1.is_international and not p2.is_international:
@@ -133,7 +133,7 @@ class Preferences:
         return 0
 
     @staticmethod
-    def _compare_mentee_seniority_allowlist(mentor: Person2025, p1: Person2025, p2: Person2025) -> int:
+    def _compare_mentee_seniority_allowlist(mentor: Person, p1: Person, p2: Person) -> int:
         allowlist = mentor.mentee_seniority_allowlist
         if p1.seniority in allowlist and p2.seniority not in allowlist:
             return 1

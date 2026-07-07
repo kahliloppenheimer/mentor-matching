@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mentor_matching.models import Person2025
+from mentor_matching.models import Person
 
 
 def build_person(
@@ -16,8 +16,8 @@ def build_person(
     prefers_mentoring_international: bool = False,
     mentee_seniority_allowlist: tuple[int, ...] = (),
     max_num_mentees: int = 1,
-) -> Person2025:
-    return Person2025(
+) -> Person:
+    return Person(
         id=id,
         name=name,
         email=email,

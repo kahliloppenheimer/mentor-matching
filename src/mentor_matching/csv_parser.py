@@ -4,10 +4,10 @@ import csv
 import secrets
 from pathlib import Path
 
-from mentor_matching.models import Person2025
+from mentor_matching.models import Person
 
 
-class CsvParser2025:
+class CsvParser:
     NAME_COL = "name"
     EMAIL_COL = "email"
     STATE_COL = "state"
@@ -33,7 +33,7 @@ class CsvParser2025:
     )
 
     @classmethod
-    def parse(cls, csv_path: str) -> list[Person2025]:
+    def parse(cls, csv_path: str) -> list[Person]:
         rows = cls._parse_csv_into_arrays(csv_path)
         if not rows:
             raise RuntimeError("CSV is empty.")
@@ -72,11 +72,11 @@ class CsvParser2025:
         return corrected_people
 
     @classmethod
-    def _correct_mentee_seniority_allowlist(cls, person: Person2025) -> Person2025:
+    def _correct_mentee_seniority_allowlist(cls, person: Person) -> Person:
         filtered_allowlist = tuple(
             seniority for seniority in person.mentee_seniority_allowlist if seniority < person.seniority
         )
-        return Person2025(
+        return Person(
             id=person.id,
             name=person.name,
             email=person.email,
@@ -121,7 +121,7 @@ class CsvParser2025:
         raise RuntimeError(f"Invalid boolean value found: {value}")
 
     @classmethod
-    def _parse_person(cls, schema: dict[str, int], row: list[str | None]) -> Person2025:
+    def _parse_person(cls, schema: dict[str, int], row: list[str | None]) -> Person:
         seniority_value = row[schema[cls.SENIORITY_COL]]
         if seniority_value is None:
             raise RuntimeError(f"Row is missing seniority:\n{row}")
@@ -140,7 +140,7 @@ class CsvParser2025:
             raise RuntimeError(f"Row is missing max_num_mentees:\n{row}")
         max_num_mentees = max(cls._ruby_to_int(value) for value in max_num_mentees_value.split(";"))
 
-        return Person2025(
+        return Person(
             id=secrets.token_hex(8),
             name=cls._required_value(row, schema[cls.NAME_COL]),
             email=cls._required_value(row, schema[cls.EMAIL_COL]),
@@ -189,15 +189,15 @@ class CsvParser2025:
         return sign * int("".join(digits))
 
     @staticmethod
-    def _group_by_name(people: list[Person2025]) -> dict[str, list[Person2025]]:
-        grouped: dict[str, list[Person2025]] = {}
+    def _group_by_name(people: list[Person]) -> dict[str, list[Person]]:
+        grouped: dict[str, list[Person]] = {}
         for person in people:
             grouped.setdefault(person.name, []).append(person)
         return grouped
 
     @staticmethod
-    def _group_by_email(people: list[Person2025]) -> dict[str, list[Person2025]]:
-        grouped: dict[str, list[Person2025]] = {}
+    def _group_by_email(people: list[Person]) -> dict[str, list[Person]]:
+        grouped: dict[str, list[Person]] = {}
         for person in people:
             grouped.setdefault(person.email, []).append(person)
         return grouped

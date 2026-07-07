@@ -2,21 +2,21 @@ from __future__ import annotations
 
 from statistics import median
 
-from mentor_matching.models import MatchStatistics, NAN, Person2025
+from mentor_matching.models import MatchStatistics, NAN, Person
 from mentor_matching.preferences import Preferences
 
 
 class Matching:
     @classmethod
-    def multiplicity(cls, person: Person2025) -> list[Person2025]:
+    def multiplicity(cls, person: Person) -> list[Person]:
         if person.max_num_mentees <= 1:
             return [person]
         return [person.with_id(f"{person.id}{index}") for index in range(1, person.max_num_mentees + 1)]
 
     @classmethod
     def match(
-        cls, people: list[Person2025], previously_matched: set[str] | None = None
-    ) -> tuple[dict[Person2025, Person2025], MatchStatistics]:
+        cls, people: list[Person], previously_matched: set[str] | None = None
+    ) -> tuple[dict[Person, Person], MatchStatistics]:
         excluded_pairs = previously_matched or set()
         diagnostics: list[str] = []
         mentors = [mentor for person in people if person.is_mentor for mentor in cls.multiplicity(person)]
@@ -82,7 +82,7 @@ class Matching:
         )
 
     @classmethod
-    def format_results(cls, matched_mentors_to_mentees: dict[Person2025, Person2025]) -> str:
+    def format_results(cls, matched_mentors_to_mentees: dict[Person, Person]) -> str:
         rows = sorted(
             f"{mentee.name};{mentee.email};{mentor.name};{mentor.email}"
             for mentor, mentee in matched_mentors_to_mentees.items()
@@ -92,11 +92,11 @@ class Matching:
     @classmethod
     def _compute_match_statistics(
         cls,
-        matched_mentors_to_mentees: dict[Person2025, Person2025],
-        mentees: list[Person2025],
-        mentors: list[Person2025],
-        mentees_to_preferences: dict[Person2025, list[Person2025]],
-        mentors_to_preferences: dict[Person2025, list[Person2025]],
+        matched_mentors_to_mentees: dict[Person, Person],
+        mentees: list[Person],
+        mentors: list[Person],
+        mentees_to_preferences: dict[Person, list[Person]],
+        mentors_to_preferences: dict[Person, list[Person]],
         diagnostics: list[str],
     ) -> MatchStatistics:
         matched_mentee_emails = sorted({mentee.email for mentee in matched_mentors_to_mentees.values()})
@@ -163,9 +163,9 @@ class Matching:
     @classmethod
     def _gale_shapley(
         cls,
-        proposers: dict[Person2025, list[Person2025]],
-        acceptors: dict[Person2025, list[Person2025]],
-    ) -> dict[Person2025, Person2025]:
+        proposers: dict[Person, list[Person]],
+        acceptors: dict[Person, list[Person]],
+    ) -> dict[Person, Person]:
         proposer_preferences = {proposer: list(preferences) for proposer, preferences in proposers.items()}
         acceptor_preferences = {acceptor: list(preferences) for acceptor, preferences in acceptors.items()}
 
@@ -186,7 +186,7 @@ class Matching:
             for acceptor, preferences in acceptor_preferences.items()
         }
 
-        matches: dict[Person2025, Person2025] = {}
+        matches: dict[Person, Person] = {}
         proposer = cls._pick_next_proposer(proposers=proposer_preferences, matches=matches)
         while proposer is not None:
             top_choice = cls._get_and_remove_top_choice(proposer=proposer, proposers=proposer_preferences)
@@ -204,9 +204,9 @@ class Matching:
 
     @staticmethod
     def _pick_next_proposer(
-        proposers: dict[Person2025, list[Person2025]],
-        matches: dict[Person2025, Person2025],
-    ) -> Person2025 | None:
+        proposers: dict[Person, list[Person]],
+        matches: dict[Person, Person],
+    ) -> Person | None:
         matched_proposers = set(matches.values())
         for proposer, choices in proposers.items():
             if choices and proposer not in matched_proposers:
@@ -215,9 +215,9 @@ class Matching:
 
     @staticmethod
     def _get_and_remove_top_choice(
-        proposer: Person2025,
-        proposers: dict[Person2025, list[Person2025]],
-    ) -> Person2025:
+        proposer: Person,
+        proposers: dict[Person, list[Person]],
+    ) -> Person:
         choices = proposers[proposer]
         if not choices:
             raise RuntimeError(f"Proposer has no choices left: {proposer}")
@@ -225,10 +225,10 @@ class Matching:
 
     @staticmethod
     def _prefers(
-        acceptor: Person2025,
-        proposer1: Person2025,
-        proposer2: Person2025,
-        acceptors: dict[Person2025, list[Person2025]],
+        acceptor: Person,
+        proposer1: Person,
+        proposer2: Person,
+        acceptors: dict[Person, list[Person]],
     ) -> bool:
         preferences = acceptors[acceptor]
         proposer1_preference = preferences.index(proposer1) if proposer1 in preferences else -1

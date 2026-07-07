@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import sys
 
-from mentor_matching.csv_parser_2025 import CsvParser2025
+from mentor_matching.csv_parser import CsvParser
 from mentor_matching.matching import Matching
 from mentor_matching.previous_matches import PreviousMatches
 
@@ -15,7 +15,7 @@ def main() -> None:
     if csv_file_path is None or csv_file_path == "":
         raise RuntimeError("Please pass in a CSV file path as input")
 
-    people = CsvParser2025.parse(csv_file_path)
+    people = CsvParser.parse(csv_file_path)
     previously_matched: set[str] = set()
     if previous_matches_csv_path:
         previously_matched = PreviousMatches.parse(previous_matches_csv_path)

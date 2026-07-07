@@ -5,7 +5,7 @@ from math import nan
 
 
 @dataclass(frozen=True, eq=False)
-class Person2025:
+class Person:
     id: str
     name: str
     email: str
@@ -18,14 +18,14 @@ class Person2025:
     mentee_seniority_allowlist: tuple[int, ...]
     max_num_mentees: int
 
-    def with_id(self, new_id: str) -> Person2025:
+    def with_id(self, new_id: str) -> Person:
         return replace(self, id=new_id)
 
     def __hash__(self) -> int:
         return hash(self.id)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Person2025) and self.id == other.id
+        return isinstance(other, Person) and self.id == other.id
 
     def __str__(self) -> str:
         return f"{self.name} ({self.email})"
