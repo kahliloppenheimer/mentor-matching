@@ -101,7 +101,11 @@ needed — it's gitignored). Use Ruby's `CSV` library to generate it with
 might contain a comma (e.g. the mentee-seniority-allowlist column).
 
 Show the user a short summary before running: counts of mentors/mentees, and any
-rows you skipped or flagged.
+rows you skipped or flagged. If the user asked to exclude a specific person by name,
+drop their row here rather than passing them through and filtering post-hoc — and
+still sanity-check their raw row while you're at it (a request to remove someone is
+a good moment to notice if their row also had a real data problem, e.g. a missing
+email).
 
 ### 7. Optional: don't repeat last year's pairings
 Ask if they have last year's match results and want to avoid repeat pairings. If
@@ -167,13 +171,31 @@ not just the name. The output already distinguishes two cases:
   process (their preferred matches were claimed by higher-priority competitors).
 
 ### 10. Produce a CSV of the results
-Don't hand back the raw `Mentees -> Mentors:` text block from step 7 as the
+Don't hand back the raw `Mentees -> Mentors:` text block from step 9 as the
 deliverable — some emails contain stray `;` characters (people pasting two emails
 into one field), which breaks naive splitting on that log format. Instead, derive
 the pairs programmatically and write a real CSV, e.g. a small script that requires
-`csv_parser_2025`, `matching`, and `preferences`, recomputes
+`csv_parser_2025`, `matching`, `preferences`, and `previous_matches`, recomputes
 `mentees_to_preferences`/`mentors_to_preferences` the same way `Matching.match`
-does, calls `Matching.send(:gale_shapley, ...)`, and writes
-`mentee_name,mentee_email,mentor_name,mentor_email` rows with Ruby's `CSV` library
-(handles quoting/escaping automatically). Save it as `tmp/<timestamp>_matches.csv`
-and tell the user where to find it.
+does — **passing the same `previously_matched` set if one was used in step 9** (it's
+easy to forget this and silently regenerate the pre-exclusion result, which will
+quietly disagree with the actual run) — calls `Matching.send(:gale_shapley, ...)`,
+and writes rows with Ruby's `CSV` library (handles quoting/escaping automatically)
+using these columns:
+
+```
+mentee_name,mentee_email,mentee_state,mentee_seniority,mentor_name,mentor_email,mentor_state,mentor_seniority
+```
+
+`*_state` is the person's raw `state` field. `*_seniority` should be the
+human-readable label, not the bare integer rank — map it back through the same
+scale in `reference/seniority-scale.md` (e.g. `3 -> "PGY1"`), since a raw number
+means nothing to the person reading the results.
+
+Save it as `tmp/<timestamp>_matches.csv` and tell the user where to find it.
+
+If you manually reassign someone after the fact (e.g. a user asks to swap one
+person's match), remember this script recomputes everything from scratch — rerunning
+it later (e.g. to add a column) will silently drop any manual edits made to a
+previous version of the file. Track any manual overrides you've made and re-apply
+them after regenerating.
