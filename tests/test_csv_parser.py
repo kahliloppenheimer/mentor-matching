@@ -89,7 +89,7 @@ def test_parse_skips_trailing_blank_row(tmp_path: Path) -> None:
     assert len(people) == 1
 
 
-def test_parse_boolean_coerces_like_ruby_to_i(tmp_path: Path) -> None:
+def test_parse_boolean_coerces_leniently(tmp_path: Path) -> None:
     csv_path = tmp_path / "people.csv"
     csv_path.write_text(
         "\n".join(

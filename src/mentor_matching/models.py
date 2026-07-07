@@ -37,6 +37,7 @@ class Person:
 @dataclass(frozen=True)
 class MatchStatistics:
     diagnostics: tuple[str, ...]
+    stability_violations: tuple[str, ...]
     matched_mentee_emails: tuple[str, ...]
     matched_mentor_emails: tuple[str, ...]
     unmatched_mentee_emails: tuple[str, ...]

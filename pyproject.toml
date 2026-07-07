@@ -1,7 +1,7 @@
 [project]
 name = "mentor-matching"
 version = "0.1.0"
-description = "Typed Python port of the mentor matching program."
+description = "Stable mentor/mentee matching."
 requires-python = ">=3.12"
 dependencies = []
 

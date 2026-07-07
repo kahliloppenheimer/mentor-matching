@@ -72,6 +72,12 @@ class Matching:
             acceptors=mentors_to_preferences,
         )
 
+        stability_violations = cls._find_blocking_pairs(
+            matched_mentors_to_mentees=matched_mentors_to_mentees,
+            mentees_to_preferences=mentees_to_preferences,
+            mentors_to_preferences=mentors_to_preferences,
+        )
+
         return matched_mentors_to_mentees, cls._compute_match_statistics(
             matched_mentors_to_mentees=matched_mentors_to_mentees,
             mentees=mentees,
@@ -79,7 +85,62 @@ class Matching:
             mentees_to_preferences=mentees_to_preferences,
             mentors_to_preferences=mentors_to_preferences,
             diagnostics=diagnostics,
+            stability_violations=stability_violations,
         )
+
+    @classmethod
+    def _find_blocking_pairs(
+        cls,
+        matched_mentors_to_mentees: dict[Person, Person],
+        mentees_to_preferences: dict[Person, list[Person]],
+        mentors_to_preferences: dict[Person, list[Person]],
+    ) -> tuple[str, ...]:
+        """Checks the Gale-Shapley stability invariant: no blocking pair should exist.
+
+        A blocking pair is a mentee and mentor who are not matched to each other but
+        would both prefer each other over their current match (or lack of one). Only
+        mutual preferences count, since a one-sided preference can't form a pair.
+        """
+        mentees_to_mentors = {mentee: mentor for mentor, mentee in matched_mentors_to_mentees.items()}
+        violations: list[str] = []
+
+        for mentee, mentor_preferences in mentees_to_preferences.items():
+            current_mentor = mentees_to_mentors.get(mentee)
+            current_mentor_rank = (
+                mentor_preferences.index(current_mentor) if current_mentor in mentor_preferences else None
+            )
+
+            for candidate_mentor in mentor_preferences:
+                if candidate_mentor == current_mentor:
+                    continue
+                mentee_prefers_candidate = (
+                    current_mentor_rank is None
+                    or mentor_preferences.index(candidate_mentor) < current_mentor_rank
+                )
+                if not mentee_prefers_candidate:
+                    continue
+
+                candidate_preferences = mentors_to_preferences.get(candidate_mentor, [])
+                if mentee not in candidate_preferences:
+                    continue
+
+                candidate_current_mentee = matched_mentors_to_mentees.get(candidate_mentor)
+                candidate_current_rank = (
+                    candidate_preferences.index(candidate_current_mentee)
+                    if candidate_current_mentee in candidate_preferences
+                    else None
+                )
+                candidate_prefers_mentee = (
+                    candidate_current_rank is None
+                    or candidate_preferences.index(mentee) < candidate_current_rank
+                )
+                if candidate_prefers_mentee:
+                    violations.append(
+                        f"Blocking pair: {mentee} and {candidate_mentor} would both prefer "
+                        "each other over their current match"
+                    )
+
+        return tuple(violations)
 
     @classmethod
     def format_results(cls, matched_mentors_to_mentees: dict[Person, Person]) -> str:
@@ -98,6 +159,7 @@ class Matching:
         mentees_to_preferences: dict[Person, list[Person]],
         mentors_to_preferences: dict[Person, list[Person]],
         diagnostics: list[str],
+        stability_violations: tuple[str, ...],
     ) -> MatchStatistics:
         matched_mentee_emails = sorted({mentee.email for mentee in matched_mentors_to_mentees.values()})
         matched_mentor_emails = sorted({mentor.email for mentor in matched_mentors_to_mentees})
@@ -138,6 +200,7 @@ class Matching:
 
         return MatchStatistics(
             diagnostics=tuple(diagnostics),
+            stability_violations=stability_violations,
             matched_mentee_emails=tuple(matched_mentee_emails),
             matched_mentor_emails=tuple(matched_mentor_emails),
             unmatched_mentee_emails=tuple(unmatched_mentee_emails),

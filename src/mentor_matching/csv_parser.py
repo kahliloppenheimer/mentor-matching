@@ -113,7 +113,7 @@ class CsvParser:
 
     @classmethod
     def _parse_boolean_col(cls, value: str) -> bool:
-        num = cls._ruby_to_int(value)
+        num = cls._lenient_int(value)
         if num == 0:
             return False
         if num == 1:
@@ -125,10 +125,10 @@ class CsvParser:
         seniority_value = row[schema[cls.SENIORITY_COL]]
         if seniority_value is None:
             raise RuntimeError(f"Row is missing seniority:\n{row}")
-        seniority = cls._ruby_to_int(seniority_value)
+        seniority = cls._lenient_int(seniority_value)
 
         mentee_seniority_allowlist = tuple(
-            cls._ruby_to_int(item.strip())
+            cls._lenient_int(item.strip())
             for item in (row[schema[cls.MENTEE_SENIORITY_ALLOWLIST_COL]] or "").split(",")
             if item.strip()
         )
@@ -138,7 +138,7 @@ class CsvParser:
         max_num_mentees_value = row[schema[cls.MAX_NUM_MENTEES_COL]]
         if max_num_mentees_value is None:
             raise RuntimeError(f"Row is missing max_num_mentees:\n{row}")
-        max_num_mentees = max(cls._ruby_to_int(value) for value in max_num_mentees_value.split(";"))
+        max_num_mentees = max(cls._lenient_int(value) for value in max_num_mentees_value.split(";"))
 
         return Person(
             id=secrets.token_hex(8),
@@ -168,7 +168,7 @@ class CsvParser:
         return any(value not in (None, "") for value in row)
 
     @staticmethod
-    def _ruby_to_int(value: str) -> int:
+    def _lenient_int(value: str) -> int:
         stripped = value.lstrip()
         sign = 1
         if stripped.startswith("-"):

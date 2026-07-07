@@ -58,6 +58,7 @@ def test_match_assigns_distinct_slots_for_multi_mentee_mentor() -> None:
     assert {matched.email for matched in matches.values()} == {"a@example.com", "b@example.com"}
     assert statistics.mentee_match_percent == 100.0
     assert statistics.mentor_match_percent == 100.0
+    assert statistics.stability_violations == ()
 
 
 def test_match_respects_previous_matches() -> None:
@@ -173,3 +174,74 @@ def test_match_handles_no_eligible_people_without_crashing() -> None:
     assert matches == {}
     assert isnan(statistics.mentee_match_percent)
     assert isnan(statistics.mentor_match_percent)
+
+
+def test_find_blocking_pairs_detects_an_unstable_match() -> None:
+    mentor_a = build_person(
+        id="ma", name="mentor a", email="ma@example.com", seniority=5, is_mentor=True, is_mentee=False
+    )
+    mentor_b = build_person(
+        id="mb", name="mentor b", email="mb@example.com", seniority=5, is_mentor=True, is_mentee=False
+    )
+    mentee_a = build_person(
+        id="ea", name="mentee a", email="ea@example.com", seniority=1, is_mentor=False, is_mentee=True
+    )
+    mentee_b = build_person(
+        id="eb", name="mentee b", email="eb@example.com", seniority=1, is_mentor=False, is_mentee=True
+    )
+
+    # Both mentees rank mentor_a first, and both mentors rank mentee_a first.
+    mentees_to_preferences = {
+        mentee_a: [mentor_a, mentor_b],
+        mentee_b: [mentor_a, mentor_b],
+    }
+    mentors_to_preferences = {
+        mentor_a: [mentee_a, mentee_b],
+        mentor_b: [mentee_a, mentee_b],
+    }
+
+    # Deliberately the wrong pairing: mentor_a and mentee_a would both rather have
+    # each other than their assigned partner, so this is a blocking pair.
+    unstable_matches = {mentor_a: mentee_b, mentor_b: mentee_a}
+
+    violations = Matching._find_blocking_pairs(
+        matched_mentors_to_mentees=unstable_matches,
+        mentees_to_preferences=mentees_to_preferences,
+        mentors_to_preferences=mentors_to_preferences,
+    )
+
+    assert len(violations) > 0
+
+
+def test_find_blocking_pairs_passes_a_stable_match() -> None:
+    mentor_a = build_person(
+        id="ma", name="mentor a", email="ma@example.com", seniority=5, is_mentor=True, is_mentee=False
+    )
+    mentor_b = build_person(
+        id="mb", name="mentor b", email="mb@example.com", seniority=5, is_mentor=True, is_mentee=False
+    )
+    mentee_a = build_person(
+        id="ea", name="mentee a", email="ea@example.com", seniority=1, is_mentor=False, is_mentee=True
+    )
+    mentee_b = build_person(
+        id="eb", name="mentee b", email="eb@example.com", seniority=1, is_mentor=False, is_mentee=True
+    )
+
+    mentees_to_preferences = {
+        mentee_a: [mentor_a, mentor_b],
+        mentee_b: [mentor_a, mentor_b],
+    }
+    mentors_to_preferences = {
+        mentor_a: [mentee_a, mentee_b],
+        mentor_b: [mentee_a, mentee_b],
+    }
+
+    stable_matches = {mentor_a: mentee_a, mentor_b: mentee_b}
+
+    violations = Matching._find_blocking_pairs(
+        matched_mentors_to_mentees=stable_matches,
+        mentees_to_preferences=mentees_to_preferences,
+        mentors_to_preferences=mentors_to_preferences,
+    )
+
+    assert violations == ()
