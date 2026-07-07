@@ -39,7 +39,11 @@ class CsvParser2025:
             raise RuntimeError("CSV is empty.")
 
         schema = cls._parse_csv_schema(rows[0])
-        people = [cls._parse_person(schema=schema, row=row) for row in rows[1:] if any(value is not None for value in row)]
+        people = [
+            cls._parse_person(schema=schema, row=row)
+            for row in rows[1:]
+            if cls._row_has_content(row)
+        ]
 
         people_with_multiple_names = sorted(
             name for name, group in cls._group_by_name(people).items() if len(group) > 1
@@ -109,7 +113,7 @@ class CsvParser2025:
 
     @classmethod
     def _parse_boolean_col(cls, value: str) -> bool:
-        num = int(value)
+        num = cls._ruby_to_int(value)
         if num == 0:
             return False
         if num == 1:
@@ -121,10 +125,10 @@ class CsvParser2025:
         seniority_value = row[schema[cls.SENIORITY_COL]]
         if seniority_value is None:
             raise RuntimeError(f"Row is missing seniority:\n{row}")
-        seniority = int(seniority_value)
+        seniority = cls._ruby_to_int(seniority_value)
 
         mentee_seniority_allowlist = tuple(
-            int(item.strip())
+            cls._ruby_to_int(item.strip())
             for item in (row[schema[cls.MENTEE_SENIORITY_ALLOWLIST_COL]] or "").split(",")
             if item.strip()
         )
@@ -134,7 +138,7 @@ class CsvParser2025:
         max_num_mentees_value = row[schema[cls.MAX_NUM_MENTEES_COL]]
         if max_num_mentees_value is None:
             raise RuntimeError(f"Row is missing max_num_mentees:\n{row}")
-        max_num_mentees = max(int(value) for value in max_num_mentees_value.split(";"))
+        max_num_mentees = max(cls._ruby_to_int(value) for value in max_num_mentees_value.split(";"))
 
         return Person2025(
             id=secrets.token_hex(8),
@@ -155,9 +159,34 @@ class CsvParser2025:
     @staticmethod
     def _required_value(row: list[str | None], index: int) -> str:
         value = row[index]
-        if value is None:
+        if value is None or value == "":
             raise RuntimeError(f"Row is missing required value at index {index}:\n{row}")
         return value
+
+    @staticmethod
+    def _row_has_content(row: list[str | None]) -> bool:
+        return any(value not in (None, "") for value in row)
+
+    @staticmethod
+    def _ruby_to_int(value: str) -> int:
+        stripped = value.lstrip()
+        sign = 1
+        if stripped.startswith("-"):
+            sign = -1
+            stripped = stripped[1:]
+        elif stripped.startswith("+"):
+            stripped = stripped[1:]
+
+        digits: list[str] = []
+        for char in stripped:
+            if not char.isdigit():
+                break
+            digits.append(char)
+
+        if not digits:
+            return 0
+
+        return sign * int("".join(digits))
 
     @staticmethod
     def _group_by_name(people: list[Person2025]) -> dict[str, list[Person2025]]:

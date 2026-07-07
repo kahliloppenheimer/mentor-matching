@@ -35,8 +35,15 @@ class PreviousMatches:
         for row in rows[1:]:
             if not any(value is not None and value != "" for value in row):
                 continue
-            mentor_email = row[schema[cls.MENTOR_EMAIL_COL]]
-            mentee_email = row[schema[cls.MENTEE_EMAIL_COL]]
+            mentor_email = cls._required_value(row, schema[cls.MENTOR_EMAIL_COL])
+            mentee_email = cls._required_value(row, schema[cls.MENTEE_EMAIL_COL])
             pair_keys.add(cls.pair_key(mentor_email, mentee_email))
 
         return pair_keys
+
+    @staticmethod
+    def _required_value(row: list[str], index: int) -> str:
+        value = row[index]
+        if value == "":
+            raise RuntimeError(f"Previous matches CSV is missing required value at index {index}: {row}")
+        return value

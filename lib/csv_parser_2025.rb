@@ -81,7 +81,7 @@ class CsvParser2025
     params(csv_path: String).returns(T::Array[T::Array[T.nilable(String)]])
   end
   private_class_method def self.parse_csv_into_arrays(csv_path)
-    CSV.read(csv_path, row_sep: "\r\n").map do |row|
+    CSV.read(csv_path).map do |row|
       row.map do |value|
         value&.downcase&.strip
       end

@@ -27,4 +27,5 @@ def test_cli_prints_match_results(
 
     output = capsys.readouterr().out
     assert "*************RESULTS*************" in output
+    assert "Num mentees: 1" in output
     assert "mentee;mentee@example.com;mentor;mentor@example.com" in output

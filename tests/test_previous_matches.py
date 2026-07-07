@@ -35,3 +35,11 @@ def test_parse_raises_on_missing_column(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError):
         PreviousMatches.parse(str(csv_path))
+
+
+def test_parse_raises_on_blank_required_email(tmp_path: Path) -> None:
+    csv_path = tmp_path / "previous_matches.csv"
+    csv_path.write_text("mentor_email,mentee_email\nmentor@example.com,\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError):
+        PreviousMatches.parse(str(csv_path))

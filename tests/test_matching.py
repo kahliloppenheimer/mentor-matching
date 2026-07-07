@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import isnan
+
 from mentor_matching.matching import Matching
 from mentor_matching.previous_matches import PreviousMatches
 
@@ -132,3 +134,42 @@ def test_format_results_outputs_sorted_export_rows() -> None:
         "mentee a;a@example.com;mentor a;mentor-a@example.com",
         "mentee b;b@example.com;mentor b;mentor-b@example.com",
     ]
+
+
+def test_match_handles_zero_matches_and_preserves_diagnostics() -> None:
+    mentor = build_person(
+        id="mentor",
+        name="mentor",
+        email="mentor@example.com",
+        seniority=5,
+        is_mentor=True,
+        is_mentee=False,
+    )
+    mentee = build_person(
+        id="mentee",
+        name="mentee",
+        email="mentee@example.com",
+        seniority=1,
+        is_mentor=False,
+        is_mentee=True,
+    )
+    previously_matched = {PreviousMatches.pair_key(mentor.email, mentee.email)}
+
+    matches, statistics = Matching.match([mentor, mentee], previously_matched=previously_matched)
+
+    assert matches == {}
+    assert statistics.median_matched_mentor_rank_for_mentee is None
+    assert statistics.median_matched_mentee_rank_for_mentor is None
+    assert statistics.median_seniority_difference is None
+    assert statistics.mentee_match_percent == 0.0
+    assert statistics.mentor_match_percent == 0.0
+    assert "Excluding 1 previously-matched pair(s) from consideration" in statistics.diagnostics
+    assert "Filtering out 1 mentees with no preferences:\n[mentee (mentee@example.com)]" in statistics.diagnostics
+
+
+def test_match_handles_no_eligible_people_without_crashing() -> None:
+    matches, statistics = Matching.match([])
+
+    assert matches == {}
+    assert isnan(statistics.mentee_match_percent)
+    assert isnan(statistics.mentor_match_percent)
