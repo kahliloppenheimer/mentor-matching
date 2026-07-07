@@ -5,14 +5,10 @@ description: Turns a raw mentor/mentee sign-up spreadsheet export (Google Forms,
 
 # Mentor matching skill
 
-You're helping someone with no Ruby/coding background turn their raw sign-up
-spreadsheet into stable mentor/mentee matches. They will *not* know column names or
-formats the underlying program expects — that's your job to figure out and confirm
-with them in plain language.
+You're helping someone with no coding background turn a raw sign-up spreadsheet
+into stable mentor/mentee matches.
 
-The program itself (`lib/application.rb` → `CsvParser2025` → `Matching`) is unchanged
-and strict: it only accepts a CSV with these exact columns (see
-`lib/csv_parser_2025.rb:12-35`):
+The program is strict: it only accepts a CSV with these exact columns:
 
 ```
 name, email, state, seniority, is a mentor?, is a mentee?, img?,
@@ -20,182 +16,132 @@ prefer mentoring img?, who would you be interested in mentoring?,
 how many mentees would you be willing to mentor?
 ```
 
-Your job is to get from "whatever spreadsheet they hand you" to that exact shape,
-with their sign-off at each judgment call, then run the program. They can also
-optionally hand you last year's match results to avoid repeating the same pairings
-(`lib/application.rb` takes it as an optional second argument, parsed by
-`lib/previous_matches.rb`).
+Your job is to get from a raw spreadsheet export to that exact shape, confirm any
+ambiguous mapping with the user, then run the matcher. They can also optionally
+hand you last year's match results to avoid repeat pairings.
 
 ## Steps
 
 ### 1. Get the raw file
 Ask for the path to a CSV export of their sign-up spreadsheet. If they only have a
-Google Sheet or Excel file, tell them how to export it: File → Download/Export → CSV.
+Google Sheet or Excel file, tell them to export CSV first.
 
 ### 2. Read it defensively
-Real exports from this survey are messy: stray BOM/encoding quirks, embedded
-newlines inside quoted header cells, trailing whitespace on names/emails, and
-occasional malformed quoting. **Ruby's `CSV.read` has choked on real exports from
-this form even with `liberal_parsing: true`.** Use Python's `csv` module (with
-`encoding='utf-8-sig'`) to read the raw file — it has handled every real export seen
-so far. Don't spend time debugging Ruby's CSV parser on the raw input; save Ruby for
-writing the final clean output and running the program.
-
-Print the header row and 2-3 sample rows for yourself to reason about (don't dump
-the whole file into the conversation).
+Use Python's `csv` module with `encoding='utf-8-sig'` to inspect the raw file.
+Print the header row and 2-3 sample rows for yourself. Don't dump the full file
+into the conversation.
 
 ### 3. Propose a column mapping
-Map the raw headers to the 10 required fields. Most are obvious from the header text
-(e.g. "Email address" → `email`). Two are commonly *missing entirely* from raw
-exports:
-- `prefer mentoring img?` (whether a mentor prefers mentoring international grads) —
-  if there's no such question in the raw file, default everyone to `0` (no
-  preference) and say so explicitly; don't invent an answer.
-- `state` — raw exports often only have a free-text "City" field like
-  `"Valhalla, NY, USA"`, `"Milwaukee, wi"`, `"Karachi, Pakistan"`, or just a bare
-  state/country name. Extract a clean state value per row yourself (you're good at
-  this); for non-US locations just use the country or region as given. Flag any row
-  you can't confidently place.
+Map the raw headers to the 10 required fields.
 
-Show the user your proposed mapping (raw column → required field, plus any
-defaults/assumptions) as plain text and get a quick confirmation or correction
-before proceeding. Don't use multiple-choice UI for this — there are more raw
-columns than a 4-option picker can hold; a short written summary is faster for them
-to skim and correct.
+Two fields are often missing in raw exports:
+- `prefer mentoring img?`: if absent, default to `0` and say so explicitly.
+- `state`: if the raw data only has city/free text, derive a clean state or country
+  value per row yourself. Flag rows you can't place confidently.
+
+Show the mapping and any defaults/assumptions to the user in plain text and get
+confirmation before proceeding.
 
 ### 4. Normalize seniority and mentee counts
-Read `reference/seniority-scale.md` now. It has the canonical rank scale (recovered
-from a past cycle's real data) plus known pitfalls: multi-select cells, free-text
-non-answers, and why rank `0` is reserved and must never be assigned.
+Read `reference/seniority-scale.md` now.
 
-Build the raw-value → rank mapping from the *actual* distinct values in this file
-(not a canned list) using that scale as the starting point. Print the proposed
-mapping and let the user confirm/adjust. Separately list out any row whose raw value
-didn't map cleanly (multi-select, free text, typos) and ask the user how to resolve
-each one — don't guess silently on data that determines who mentors whom.
+Build the raw-value -> rank mapping from the actual distinct values in the file
+using that scale as the starting point. Show the mapping to the user and ask about
+any ambiguous values or multi-select/free-text rows.
 
-Do the same treatment for "how many mentees would you mentor" (default `1` for
-mentors if blank, `0` if not a mentor) and for "who would you be interested in
-mentoring" (reuse the same rank mapping — it's the same set of raw category labels
-elsewhere in the form's multi-select; leave blank if the person isn't a mentor or
-didn't answer, which the program already treats as "anyone more junior").
+Do the same for:
+- "how many mentees would you mentor"
+- "who would you be interested in mentoring?"
+
+Reuse the same seniority mapping for the mentoring-allowlist field.
 
 ### 5. Normalize booleans
-`is a mentor?`, `is a mentee?`, `img?`, `prefer mentoring img?` must be written as
-literal `0` or `1`. Typical raw values are `Yes`/`No`/`Not applicable` — map
-`Yes` → `1`, everything else → `0`. Confirm this reading with the user if the raw
-values look unusual.
+Write `is a mentor?`, `is a mentee?`, `img?`, and `prefer mentoring img?` as
+literal `0` or `1`.
+
+Typical mapping:
+- `Yes` -> `1`
+- everything else -> `0`
+
+If the raw values look unusual, confirm with the user instead of guessing.
 
 ### 6. Write the normalized CSV
-Once the mapping is confirmed, write the output with these exact lowercase headers
-(order doesn't matter, `CsvParser2025` looks up by name):
+Write the output with these exact lowercase headers:
 
 ```
 name,email,state,seniority,is a mentor?,is a mentee?,img?,prefer mentoring img?,who would you be interested in mentoring?,how many mentees would you be willing to mentor?
 ```
 
-Write it to `tmp/<timestamp>_normalized.csv` in the repo root (create `tmp/` if
-needed — it's gitignored). Use Ruby's `CSV` library to generate it with
-`row_sep: "\r\n"` — `CsvParser2025` reads with that exact row separator
-(`lib/csv_parser_2025.rb:84`) and will error on plain `\n`. Quote any field that
-might contain a comma (e.g. the mentee-seniority-allowlist column).
+Write it to `tmp/<timestamp>_normalized.csv` in the repo root. `tmp/` should be
+created if missing.
 
-Show the user a short summary before running: counts of mentors/mentees, and any
-rows you skipped or flagged. If the user asked to exclude a specific person by name,
-drop their row here rather than passing them through and filtering post-hoc — and
-still sanity-check their raw row while you're at it (a request to remove someone is
-a good moment to notice if their row also had a real data problem, e.g. a missing
-email).
+Before running, summarize:
+- mentor count
+- mentee count
+- any skipped rows
+- any rows that needed judgment calls
 
-### 7. Optional: don't repeat last year's pairings
-Ask if they have last year's match results and want to avoid repeat pairings. If
-so, get that file too — it's usually messier than you'd expect: real exports seen
-so far have **no real header row** (just a junk title line like `Mentees,,Mentors,`)
-and are purely positional (mentee name, mentee email, mentor name, mentor email).
-Read a few rows defensively (same caution as step 2 — prefer Python's `csv` module),
-confirm which columns are which with the user if it's not obvious from content
-(e.g. which columns look like emails), then write
-`tmp/<timestamp>_previous_matches.csv` with exactly these headers (any other
-columns, e.g. names, are ignored by the program):
+### 7. Optional previous matches
+Ask if they have last year's results and want to avoid repeated pairings.
+
+If yes, build `tmp/<timestamp>_previous_matches.csv` with exactly:
 
 ```
 mentor_email,mentee_email
 ```
 
-Plain `CSV` defaults are fine here (no `\r\n` requirement, unlike step 6 — that's
-specific to `CsvParser2025`). A pairing is excluded regardless of which person is
-mentor vs. mentee this year — if two people were matched last year in either
-direction, they won't be re-paired.
+Read the raw previous-match export defensively with Python `csv`. If it has junk
+header/title rows or positional columns, infer carefully and confirm with the user
+if the mapping is not obvious.
 
-### 8. Validate both CSVs before running anything
-Don't hand the normalized file(s) straight to the full match — validate first by
-actually parsing them with the program's own classes, so column/format problems
-surface immediately instead of showing up as a confusing crash mid-run or (worse)
-silently wrong results:
+### 8. Validate before running
+Validate the normalized file(s) with the program's own parser classes:
 
-```
-bundle exec ruby -r./lib/csv_parser_2025 -e 'CsvParser2025.parse(ARGV[0])' tmp/<timestamp>_normalized.csv
-bundle exec ruby -r./lib/previous_matches -e 'PreviousMatches.parse(ARGV[0])' tmp/<timestamp>_previous_matches.csv
+```bash
+uv run python -c 'from mentor_matching.csv_parser import CsvParser; import sys; CsvParser.parse(sys.argv[1])' tmp/<timestamp>_normalized.csv
+uv run python -c 'from mentor_matching.previous_matches import PreviousMatches; import sys; PreviousMatches.parse(sys.argv[1])' tmp/<timestamp>_previous_matches.csv
 ```
 
-Both classes raise a clear, specific error message on bad input (missing required
-column, duplicate name/email, missing seniority, invalid boolean value, etc. — see
-`lib/csv_parser_2025.rb` and `lib/previous_matches.rb`). When one raises:
-- If the fix is unambiguous (a typo'd header, a stray blank row, wrong row
-  separator) — fix the normalized CSV yourself and re-validate. Don't ask the user
-  to do something you can just do.
-- If the fix is ambiguous (e.g. "found people with multiple entries" — a real
-  duplicate sign-up where you can't tell which entry is authoritative) — stop, quote
-  the exact error and the specific row(s), and ask the user how to resolve it.
-
-Only move on to step 9 once both validations pass cleanly.
+If a fix is mechanical, fix it yourself and re-run validation. If the fix is
+ambiguous, stop and ask the user.
 
 ### 9. Run the match
+```bash
+uv run mentor-matching tmp/<timestamp>_normalized.csv tmp/<timestamp>_previous_matches.csv
 ```
-bundle exec ruby lib/application.rb tmp/<timestamp>_normalized.csv tmp/<timestamp>_previous_matches.csv
-```
-(Note: `bundle exec lib/application.rb`, without `ruby`, fails with "not
-executable" — the file has no shebang/exec bit. The second argument is optional —
-omit it if there's no previous-matches file.)
 
-Save the full output to `tmp/<timestamp>_results.txt` and summarize the key stats
-(match %, median ranks, unmatched counts) back to the user in plain language.
+The second argument is optional. Save the full output to
+`tmp/<timestamp>_results.txt`.
 
-For every unmatched mentee or mentor named in the output, give a one-line reason,
-not just the name. The output already distinguishes two cases:
-- Listed in "Filtering out N mentees/mentors with no preferences" — they had zero
-  eligible counterparts (e.g. a mentee already at/near the top of the seniority
-  scale with nobody strictly more senior in the mentor pool). Say so explicitly.
-- Listed only in the final "Unmatched mentees/mentors" count but not filtered
-  earlier — they had eligible preferences but lost out during the stable-matching
-  process (their preferred matches were claimed by higher-priority competitors).
+Every match is always stability-checked automatically — `Matching.match` runs
+`Matching._find_blocking_pairs` (the Gale-Shapley invariant: no unmatched
+mentor/mentee pair should exist who'd both prefer each other over their current
+match) and the CLI exits with a non-zero status and prints
+`STABILITY CHECK FAILED` if it finds any. You don't need to invoke anything extra
+for this to run, and you can't accidentally skip it.
+
+If you ever see `STABILITY CHECK FAILED`, that means the matching algorithm
+itself produced an invalid result. Don't report it to the user as if it were a
+normal data issue and move on — treat it as a real bug in `matching.py`/
+`preferences.py`. Stop and investigate/report it clearly.
+
+Summarize for the user:
+- match %
+- median ranks
+- unmatched counts (with a one-line reason for each unmatched person — see the
+  "Filtering out N mentees/mentors with no preferences" vs. plain "Unmatched"
+  distinction in the output)
+- the stability check result (always mention it explicitly, even when it passes)
 
 ### 10. Produce a CSV of the results
-Don't hand back the raw `Mentees -> Mentors:` text block from step 9 as the
-deliverable — some emails contain stray `;` characters (people pasting two emails
-into one field), which breaks naive splitting on that log format. Instead, derive
-the pairs programmatically and write a real CSV, e.g. a small script that requires
-`csv_parser_2025`, `matching`, `preferences`, and `previous_matches`, recomputes
-`mentees_to_preferences`/`mentors_to_preferences` the same way `Matching.match`
-does — **passing the same `previously_matched` set if one was used in step 9** (it's
-easy to forget this and silently regenerate the pre-exclusion result, which will
-quietly disagree with the actual run) — calls `Matching.send(:gale_shapley, ...)`,
-and writes rows with Ruby's `CSV` library (handles quoting/escaping automatically)
-using these columns:
+Don't scrape the plain-text log by splitting on delimiters. Recompute the match
+programmatically and write a real CSV with Python using the same parser and matching
+modules, and the same `previously_matched` set if used.
+
+Write:
 
 ```
 mentee_name,mentee_email,mentee_state,mentee_seniority,mentor_name,mentor_email,mentor_state,mentor_seniority
 ```
 
-`*_state` is the person's raw `state` field. `*_seniority` should be the
-human-readable label, not the bare integer rank — map it back through the same
-scale in `reference/seniority-scale.md` (e.g. `3 -> "PGY1"`), since a raw number
-means nothing to the person reading the results.
-
-Save it as `tmp/<timestamp>_matches.csv` and tell the user where to find it.
-
-If you manually reassign someone after the fact (e.g. a user asks to swap one
-person's match), remember this script recomputes everything from scratch — rerunning
-it later (e.g. to add a column) will silently drop any manual edits made to a
-previous version of the file. Track any manual overrides you've made and re-apply
-them after regenerating.
+Save it as `tmp/<timestamp>_matches.csv` and tell the user where it is.
