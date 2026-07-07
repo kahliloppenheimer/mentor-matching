@@ -42,6 +42,12 @@ bundle
 bundle exec ruby lib/application.rb ~/path_to_csv.csv [~/path_to_previous_matches.csv]
 ```
 
+Python port:
+```bash
+uv sync --dev
+uv run mentor-matching ~/path_to_csv.csv [~/path_to_previous_matches.csv]
+```
+
 ##### Expected CSV columns
 ```
 name, email, state, seniority, is a mentor?, is a mentee?, img?, prefer mentoring img?, who would you be interested in mentoring?, how many mentees would you be willing to mentor?
@@ -58,6 +64,16 @@ Pass a second CSV of previous matches to prevent the same mentor/mentee pairing 
 repeating. It needs `mentor_email` and `mentee_email` columns (any other columns are
 ignored); a pairing is excluded regardless of which person is mentor vs. mentee this
 year.
+
+##### Comparing Ruby vs Python
+Run both against the same 2025-format CSV:
+```bash
+bundle exec ruby lib/application.rb ~/path_to_csv.csv [~/path_to_previous_matches.csv]
+uv run mentor-matching ~/path_to_csv.csv [~/path_to_previous_matches.csv]
+```
+
+Note: `data/test-inputs.csv` is older pre-2025 sample data and does not match the
+current required schema for either implementation.
 
 #### Option 2: Run as a Claude Code skill
 Use this if you have a raw spreadsheet export (Google Forms/Sheets, Excel) that
